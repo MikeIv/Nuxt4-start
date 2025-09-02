@@ -100,8 +100,7 @@
   }
 
   .btnText {
-    margin-left: rem(10);
-    margin-right: rem(8);
+    margin-right: rem(25);
   }
 
   .iconSwitch {
