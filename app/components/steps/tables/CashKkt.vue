@@ -166,7 +166,25 @@
       | "settlement_account_number"
       | "files",
   ): boolean => {
-    return invalidFields.value[index]?.includes(field) || false;
+    const row = editableRows.value[index];
+    const isNewAddedRow = addedRowsIndices.value.includes(index);
+
+    // Если поле уже отмечено как invalid
+    if (invalidFields.value[index]?.includes(field)) return true;
+
+    // Для существующих строк показываем красный бордер, если поле пустое
+    if (!isNewAddedRow) {
+      if (field === "name" && (!row.name || row.name.trim() === ""))
+        return true;
+      if (
+        field === "settlement_account_number" &&
+        (!row.settlement_account_number ||
+          row.settlement_account_number.trim() === "")
+      )
+        return true;
+    }
+
+    return false;
   };
 
   const validateRow = (index: number) => {
@@ -478,7 +496,6 @@
             placeholder="Введите название"
             class="name-input"
             :class="[
-              'name-input',
               {
                 [$style.errorInput]: shouldShowError(index, 'name'),
               },

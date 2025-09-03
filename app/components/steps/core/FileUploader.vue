@@ -104,7 +104,7 @@
           },
         ]"
       >
-        {{ multiple ? "Добавить файлы" : "Добавить файл" }}
+        {{ multiple ? "Добавить вложения" : "Добавить вложение" }}
       </label>
       <span v-if="multiple && maxFiles" :class="$style.limit">
         <!-- (максимум {{ maxFiles }}) -->
@@ -119,21 +119,15 @@
         :key="file.id"
         :class="$style.info"
       >
-        <a
-          v-if="file.url"
-          :href="file.url"
-          target="_blank"
-          :class="$style.name"
-        >
+        <p :class="$style.name">
           {{ file.name }}
-        </a>
-        <span v-else :class="$style.name">{{ file.name }}</span>
+        </p>
         <button
           :class="$style.remove"
           :disabled="isLoading"
           @click="removeFile(fileIndex)"
         >
-          ×
+          <UIcon name="busket" :class="$style.buttonIcon" />
         </button>
       </div>
     </div>
@@ -216,6 +210,12 @@
       opacity: 0.5;
       cursor: not-allowed;
     }
+  }
+
+  .buttonIcon {
+    margin-top: rem(5);
+    width: rem(17);
+    height: rem(17);
   }
 
   .loading {

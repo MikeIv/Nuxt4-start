@@ -49,13 +49,9 @@
   });
 
   const { editableRows, kktErrors, numberErrors, tableMessage } = toRefs(state);
-
   const { loading: fileLoading } = useSaveFile();
 
-  if (editableRows.value.length === 0) {
-    editableRows.value.push(createEmptyRow());
-  }
-
+  // --- Функции для создания и нормализации строк ---
   function createEmptyRow(): RefundsTableRow {
     return {
       id: "",
@@ -70,26 +66,64 @@
     };
   }
 
-  const { totalWithVAT, totalVAT } = useRefundsCalculations(editableRows);
+  function normalizeRow(row: RefundsTableRow): RefundsTableRow {
+    return {
+      ...createEmptyRow(),
+      ...row,
+      returns_goods_services_with_nds:
+        typeof row.returns_goods_services_with_nds === "number"
+          ? row.returns_goods_services_with_nds.toFixed(2).replace(".", ",")
+          : row.returns_goods_services_with_nds || "0,00",
+      returns_goods_services_nds:
+        typeof row.returns_goods_services_nds === "number"
+          ? row.returns_goods_services_nds.toFixed(2).replace(".", ",")
+          : row.returns_goods_services_nds || "0,00",
+      gift_certificates_sold_with_nds:
+        typeof row.gift_certificates_sold_with_nds === "number"
+          ? row.gift_certificates_sold_with_nds.toFixed(2).replace(".", ",")
+          : row.gift_certificates_sold_with_nds || "0,00",
+      gift_certificates_sold_nds:
+        typeof row.gift_certificates_sold_nds === "number"
+          ? row.gift_certificates_sold_nds.toFixed(2).replace(".", ",")
+          : row.gift_certificates_sold_nds || "0,00",
+    };
+  }
 
+  function handleNumberBlurWithDefault(
+    field: keyof RefundsTableRow,
+    index: number,
+  ) {
+    let value = editableRows.value[index][field] as string;
+
+    if (!value || value === ",") {
+      value = "0,00";
+    } else {
+      if (!value.includes(",")) {
+        value = value + ",00";
+      } else {
+        const [integer, decimal] = value.split(",");
+        const paddedDecimal = (decimal || "").padEnd(2, "0").slice(0, 2);
+        value = integer + "," + paddedDecimal;
+      }
+
+      if (value.startsWith("0") && value.length > 1 && value[1] !== ",") {
+        value = value.replace(/^0+/, "");
+        if (value === "" || value.startsWith(",")) {
+          value = "0" + value;
+        }
+      }
+    }
+
+    editableRows.value[index][field] = value;
+  }
+
+  // --- Инициализация данных при загрузке ---
   watch(
     () => props.initialData,
     (newData) => {
       if (JSON.stringify(newData) !== JSON.stringify(editableRows.value)) {
         editableRows.value = newData?.length
-          ? newData.map((row, index) => ({
-              ...createEmptyRow(),
-              ...row,
-              name: row.name || `Основание ${index + 1}`,
-              returns_goods_services_with_nds:
-                row.returns_goods_services_with_nds || "0,00",
-              returns_goods_services_nds:
-                row.returns_goods_services_nds || "0,00",
-              gift_certificates_sold_with_nds:
-                row.gift_certificates_sold_with_nds || "0,00",
-              gift_certificates_sold_nds:
-                row.gift_certificates_sold_nds || "0,00",
-            }))
+          ? newData.map(normalizeRow)
           : [createEmptyRow()];
       }
     },
@@ -109,8 +143,11 @@
     gift_certificates_sold_nds: { required: false, min: 0 },
   } as const;
 
-  const { handleNumberInput, handleNumberBlur, shouldShowError } =
-    useNumberFields(editableRows, numberErrors, fieldValidations);
+  const { handleNumberInput, shouldShowError } = useNumberFields(
+    editableRows,
+    numberErrors,
+    fieldValidations,
+  );
 
   const { handleFileUploaded, handleFileRemoved } =
     useFileHandling<RefundsTableRow>({
@@ -124,6 +161,7 @@
       }),
     });
 
+  const { totalWithVAT, totalVAT } = useRefundsCalculations(editableRows);
   // Функция для проверки, есть ли ненулевые значения в строке
   const hasNonZeroValues = (row: RefundsTableRow): boolean => {
     const numericFields = [
@@ -152,7 +190,7 @@
   });
 
   const setData = (newData: RefundsTableRow[]) => {
-    editableRows.value = [...newData];
+    editableRows.value = newData.map(normalizeRow);
   };
 
   defineExpose({
@@ -226,7 +264,12 @@
                 );
               }
             "
-            @blur="handleNumberBlur('returns_goods_services_with_nds', index)"
+            @blur="
+              handleNumberBlurWithDefault(
+                'returns_goods_services_with_nds',
+                index,
+              )
+            "
           />
         </div>
         <div>
@@ -246,7 +289,9 @@
             @input="
               handleNumberInput($event, 'returns_goods_services_nds', index)
             "
-            @blur="handleNumberBlur('returns_goods_services_nds', index)"
+            @blur="
+              handleNumberBlurWithDefault('returns_goods_services_nds', index)
+            "
           />
         </div>
       </div>
@@ -273,7 +318,12 @@
                 index,
               )
             "
-            @blur="handleNumberBlur('gift_certificates_sold_with_nds', index)"
+            @blur="
+              handleNumberBlurWithDefault(
+                'gift_certificates_sold_with_nds',
+                index,
+              )
+            "
           />
         </div>
         <div>
@@ -293,7 +343,9 @@
             @input="
               handleNumberInput($event, 'gift_certificates_sold_nds', index)
             "
-            @blur="handleNumberBlur('gift_certificates_sold_nds', index)"
+            @blur="
+              handleNumberBlurWithDefault('gift_certificates_sold_nds', index)
+            "
           />
         </div>
       </div>

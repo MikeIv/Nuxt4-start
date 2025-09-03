@@ -496,8 +496,8 @@
   }
 
   .errorInput {
-    border-color: var(--a-borderError);
-    //    box-shadow: 0 0 0 1px var(--a-borderError);
+    border: 1px solid var(--a-borderError) !important;
+    border-radius: 0.25rem !important;
   }
 
   .errorMessage {
