@@ -17,6 +17,7 @@ interface StepTwoState {
   cashKkt: TableData<CashTableRow>;
   nonCash: TableData<NonCashTableRow>;
   otherSum: TableData<OtherSumTableRow>;
+  isChanged: boolean;
 }
 
 export const useStepTwoStore = defineStore("stepTwo", {
@@ -25,6 +26,7 @@ export const useStepTwoStore = defineStore("stepTwo", {
     cashKkt: { rows: [], withVAT: 0, VAT: 0 },
     nonCash: { rows: [], withVAT: 0, VAT: 0 },
     otherSum: { rows: [], withVAT: 0, VAT: 0 },
+    isChanged: false,
   }),
 
   getters: {
@@ -53,6 +55,7 @@ export const useStepTwoStore = defineStore("stepTwo", {
       data: { rows: StepTwoState[T]["rows"]; withVAT: number; VAT: number },
     ) {
       this[table] = data;
+      this.isChanged = true;
     },
 
     getAllData() {

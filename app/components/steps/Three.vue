@@ -35,7 +35,28 @@
     isDataChanged.value = true;
   };
 
-  const handleTableChange = () => {
+  const handleTableChange = (tableName: "refunds" | "otherAmounts") => {
+    const tableRefMap = {
+      refunds: refundsTableRef,
+      otherAmounts: otherAmountsTableRef,
+    };
+
+    const tableRef = tableRefMap[tableName];
+
+    if (!tableRef.value) return;
+
+    const tableData = tableRef.value.getTableData?.();
+
+    if (!tableData) return;
+
+    stepThreeStore.updateTable(tableName, {
+      rows: tableData.rows,
+      withVAT: tableData.totals?.withVAT ?? 0,
+      VAT: tableData.totals?.VAT ?? 0,
+    });
+
+    isDataChanged.value = true;
+
     checkDataChanges();
   };
 
@@ -286,7 +307,7 @@
             :initial-data="tableRefunds?.body"
             :loading="isLoading"
             :error="error"
-            @change="handleTableChange"
+            @change="handleTableChange('refunds')"
           />
         </div>
       </section>
@@ -302,7 +323,7 @@
             :initial-data="tableOtherAmouts?.body"
             :loading="isLoading"
             :error="error"
-            @change="handleTableChange"
+            @change="handleTableChange('otherAmounts')"
           />
         </div>
       </section>
