@@ -1,4 +1,66 @@
 <script setup lang="ts">
+  import { useStepOneStore } from "~/stores/stepOne";
+  import { useStepTwoStore } from "~/stores/stepTwo";
+  import { useStepThreeStore } from "~/stores/stepThree";
+  import { useToast } from "#imports";
+
+  const stepOneStore = useStepOneStore();
+  const stepTwoStore = useStepTwoStore();
+  const stepThreeStore = useStepThreeStore();
+
+  const tableRef = ref();
+
+  const isSavingDraft = ref(false);
+  const saveSuccess = ref(false);
+  const saveSuccessMessage = ref("");
+
+  const saveDraft = async () => {
+    isSavingDraft.value = true;
+    try {
+      const draft = {
+        status: "Draft",
+        report: {
+          visitors_count: stepOneStore.visitorsCount || 0,
+          receipts_count: stepOneStore.checksCount || 0,
+          period: {
+            start: stepOneStore.dateRange?.[0] || new Date().toISOString(),
+            end: stepOneStore.dateRange?.[1] || new Date().toISOString(),
+          },
+          kkts: stepTwoStore.kkt?.rows || [],
+          cash_turnovers_without_kkt: stepTwoStore.cashKkt?.rows || [],
+          cash_turnovers_non_cash: stepTwoStore.nonCash?.rows || [],
+          cash_turnovers_other: stepTwoStore.otherSum?.rows || [],
+          kkts_exclusions: stepThreeStore.refunds?.rows || [],
+          cash_turnover_exclusions_other:
+            stepThreeStore.otherAmounts?.rows || [],
+          turnover_calculation: tableRef.value?.getTableData()?.rows || [],
+        },
+      };
+
+      await loadReport("/tenants/reports", {
+        method: "POST",
+        body: draft,
+      });
+
+      saveSuccess.value = true;
+      saveSuccessMessage.value = "Данные успешно сохранены в черновик";
+
+      setTimeout(() => {
+        saveSuccess.value = false;
+        saveSuccessMessage.value = "";
+      }, 3000);
+    } catch (err) {
+      console.error("Ошибка сохранения черновика:", err);
+      useToast().add({
+        title: "Ошибка",
+        description: "Не удалось сохранить черновик",
+        color: "red",
+      });
+    } finally {
+      isSavingDraft.value = false;
+    }
+  };
+
   const handleBack = () => {
     console.log("Back");
     navigateTo("/record/3");
@@ -52,7 +114,7 @@
         without_nds: percentageWithoutVAT,
       },
       {
-        name: "База сравнения за отчетный период",
+        name: "База сравнения за отчетный период, руб.",
         sum: "0",
       },
       {
@@ -115,7 +177,9 @@
               {{ row.name }}
             </div>
 
-            <template v-if="row.name === 'База сравнения за отчетный период'">
+            <template
+              v-if="row.name === 'База сравнения за отчетный период, руб.'"
+            >
               <div :class="[$style.tableCell, $style.sumCell]" :colspan="2">
                 <input
                   :value="baseComparisonValue"
@@ -124,6 +188,7 @@
                   @input="handleBaseInput($event)"
                   @blur="formatBaseValue()"
                 />
+                <span>₽</span>
               </div>
             </template>
             <template v-else-if="row.name === 'Процент с Денежного оборота, %'">
@@ -179,6 +244,30 @@
         <UButton class="steps-nav-btn ghost" @click="handleBack">Назад</UButton>
       </template>
       <template #action>
+        <UButton
+          class="steps-nav-btn ghost"
+          :loading="isSavingDraft"
+          @click="saveDraft"
+        >
+          Сохранить как черновик
+        </UButton>
+
+        <transition
+          enter-active-class="transition-opacity duration-300"
+          enter-from-class="opacity-0"
+          enter-to-class="opacity-100"
+          leave-active-class="transition-opacity duration-300"
+          leave-from-class="opacity-100"
+          leave-to-class="opacity-0"
+        >
+          <div
+            v-if="saveSuccess"
+            class="flex items-center text-green-600 text-sm font-medium ml-2"
+          >
+            <UIcon name="i-heroicons-check-circle" class="w-5 h-5 mr-1" />
+            {{ saveSuccessMessage }}
+          </div>
+        </transition>
         <UButton
           class="steps-nav-btn ghost"
           :loading="isSaving"
