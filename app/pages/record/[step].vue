@@ -3,10 +3,11 @@
   const route = useRoute();
   const step = route.params.step;
 
-  // Валидация шага (опционально)
-  if (!["1", "2", "3", "4"].includes(step)) {
-    throw createError({ statusCode: 404, statusMessage: "Шаг не найден" });
-  }
+  // Валидация шага (опционально): UPD - так, как добавлен middleware record-steps-global, код ниже не отрабатывает.
+  //  middleware добавлен для невозможности перехода между шагами по прямой ссылке
+  // if (!["1", "2", "3", "4"].includes(step)) {
+  //   throw createError({ statusCode: 404, statusMessage: "Шаг не найден" });
+  // }
 </script>
 
 <template>
