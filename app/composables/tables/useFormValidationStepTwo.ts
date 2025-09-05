@@ -82,12 +82,12 @@ export const useFormValidation = (
       const hasFiles = (row.file_ids?.length ?? 0) > 0;
 
       if (index < 4) {
-        const isEmptyRow =
+        const isEmptyRowTab2 =
           !amountWithNdsFilled &&
           !amountNdsFilled &&
           !settlementFilled &&
           !hasFiles;
-        if (isEmptyRow) return false; // полностью пустая строка игнорируется
+        if (isEmptyRowTab2) return false; // полностью пустая строка игнорируется
 
         // Если 3-я колонка заполнена, все остальные поля обязательны
         if (settlementFilled) {
@@ -129,15 +129,25 @@ export const useFormValidation = (
       };
     }
 
-    const nonCashInvalid = tablesData.nonCash.rows
-      .slice(3)
-      .some(
-        (row) =>
-          !row.name ||
-          isNaN(parseFloat(row.amount_with_nds)) ||
-          isNaN(parseFloat(row.amount_nds)) ||
-          (row.file_ids?.length ?? 0) === 0,
-      );
+    const nonCashInvalid = tablesData.nonCash.rows.some((row, index) => {
+      const amountWithNdsFilled =
+        row.amount_with_nds && row.amount_with_nds !== "0,00";
+      const amountNdsFilled = row.amount_nds && row.amount_nds !== "0,00";
+      const nameFilled = row.name && row.name.trim() !== "";
+      const hasFiles = (row.file_ids?.length ?? 0) > 0;
+
+      if (index < 3) {
+        const isEmptyRowTab3 =
+          !amountNdsFilled && !amountWithNdsFilled && !hasFiles;
+
+        if (isEmptyRowTab3) return false;
+      }
+
+      if (!nameFilled || !hasFiles || !amountNdsFilled || !amountWithNdsFilled)
+        return true;
+
+      return false;
+    });
 
     if (nonCashInvalid) {
       return {
