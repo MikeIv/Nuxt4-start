@@ -166,23 +166,7 @@
       | "settlement_account_number"
       | "files",
   ): boolean => {
-    const row = editableRows.value[index];
-    const isNewAddedRow = addedRowsIndices.value.includes(index);
-
-    // Если поле уже отмечено как invalid
-    if (invalidFields.value[index]?.includes(field)) return true;
-
-    // Для существующих строк показываем красный бордер, если поле пустое
-    if (!isNewAddedRow) {
-      if (field === "name" && (!row.name || row.name.trim() === ""))
-        return true;
-      if (
-        field === "settlement_account_number" &&
-        (!row.settlement_account_number ||
-          row.settlement_account_number.trim() === "")
-      )
-        return true;
-    }
+    return invalidFields.value[index]?.includes(field) || false;
 
     return false;
   };
@@ -212,6 +196,19 @@
       !fieldValidations.amount_nds(amountNds)
     ) {
       errors.push("amount_nds");
+    }
+
+    if (index < 4) {
+      const isAmountFilled =
+        (amountWithNds && amountWithNds !== "0,00") ||
+        (amountNds && amountNds !== "0,00");
+
+      if (
+        isAmountFilled &&
+        (!settlementAccount || settlementAccount.trim() === "")
+      ) {
+        errors.push("settlement_account_number");
+      }
     }
 
     const isNewlyAddedRow = addedRowsIndices.value.includes(index);
