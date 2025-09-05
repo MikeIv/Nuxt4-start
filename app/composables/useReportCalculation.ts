@@ -17,6 +17,8 @@ export const useReportCalculation = () => {
   const hasChanges = ref(false);
   const baseComparisonValue = ref(0);
   const isSaving = ref(false);
+  const reportSaved = ref(false);
+  const shouldResetOnLeave = ref(false);
 
   const rentPercentage = computed(() => {
     return reportData.value?.report?.rent_percentage ?? 0;
@@ -166,6 +168,9 @@ export const useReportCalculation = () => {
         throw new Error("Не удалось сохранить отчет");
       }
 
+      reportSaved.value = true;
+      shouldResetOnLeave.value = true;
+
       return response;
     } catch (err) {
       console.error("Ошибка при сохранении отчета:", err);
@@ -179,6 +184,8 @@ export const useReportCalculation = () => {
     hasChanges,
     baseComparisonValue,
     isSaving,
+    reportSaved,
+    shouldResetOnLeave,
     sumWithVAT,
     sumWithoutVAT,
     rentPercentage,

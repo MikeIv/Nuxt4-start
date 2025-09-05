@@ -29,6 +29,7 @@ export const useStepThreeStore = defineStore("stepThree", {
   actions: {
     reset() {
       this.$reset();
+      localStorage.removeItem("step-three-storage");
     },
 
     updateTable<T extends keyof StepThreeState>(

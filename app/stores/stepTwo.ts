@@ -48,6 +48,7 @@ export const useStepTwoStore = defineStore("stepTwo", {
   actions: {
     reset() {
       this.$reset();
+      localStorage.removeItem("step-two-storage");
     },
 
     updateTable<T extends keyof StepTwoState>(

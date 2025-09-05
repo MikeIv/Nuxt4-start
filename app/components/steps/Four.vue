@@ -2,7 +2,16 @@
   import { useStepOneStore } from "~/stores/stepOne";
   import { useStepTwoStore } from "~/stores/stepTwo";
   import { useStepThreeStore } from "~/stores/stepThree";
-  import { useToast } from "#imports";
+  import { useToast, onBeforeRouteLeave } from "#imports";
+
+  onBeforeRouteLeave(() => {
+    if (shouldResetOnLeave.value) {
+      stepOneStore.reset();
+      stepTwoStore.reset();
+      stepThreeStore.reset();
+      shouldResetOnLeave.value = false;
+    }
+  });
 
   const stepOneStore = useStepOneStore();
   const stepTwoStore = useStepTwoStore();
@@ -72,6 +81,8 @@
     formatCurrency,
     savingReport,
     isSaving,
+    reportSaved,
+    shouldResetOnLeave,
     sumWithVAT,
     sumWithoutVAT,
     baseComparisonValue,
@@ -241,12 +252,18 @@
 
     <StepsCoreNavigation :step="4" :show-back="true" :show-next="false">
       <template #back>
-        <UButton class="steps-nav-btn ghost" @click="handleBack">Назад</UButton>
+        <UButton
+          class="steps-nav-btn ghost"
+          :disabled="reportSaved"
+          @click="handleBack"
+          >Назад</UButton
+        >
       </template>
       <template #action>
         <UButton
           class="steps-nav-btn ghost"
           :loading="isSavingDraft"
+          :disabled="reportSaved"
           @click="saveDraft"
         >
           Сохранить как черновик
@@ -271,6 +288,7 @@
         <UButton
           class="steps-nav-btn ghost"
           :loading="isSaving"
+          :disabled="reportSaved"
           @click="savingReport"
         >
           {{ isSaving ? "Формирование..." : "Сформировать отчет" }}
