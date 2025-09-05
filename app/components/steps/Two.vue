@@ -176,7 +176,31 @@
     isDataChanged.value = true;
   };
 
-  const handleTableChange = () => {
+  const handleTableChange = (
+    tableName: "kkt | cashKkt | nonCash | otherSum",
+  ) => {
+    const tableRefMap = {
+      kkt: kktTableRef,
+      cashKkt: cashKktTableRef,
+      nonCash: nonCashTableRef,
+      otherSum: otherSumTableRef,
+    };
+
+    const tableRef = tableRefMap[tableName];
+
+    if (!tableRef.value) return;
+
+    const tableData = tableRef.value.getTableData?.();
+
+    if (!tableData) return;
+
+    stepTwoStore.updateTable(tableName, {
+      rows: tableData.rows,
+      withVAT: tableData.totals?.withVAT ?? 0,
+      VAT: tableData.totals?.VAT ?? 0,
+    });
+
+    isDataChanged.value = true;
     checkDataChanges();
   };
 
@@ -277,7 +301,7 @@
             :initial-data="tableKkt?.body"
             :loading="isLoading"
             :error="error"
-            @change="handleTableChange"
+            @change="handleTableChange('kkt')"
           />
         </div>
       </section>
@@ -293,7 +317,7 @@
             :initial-data="tableCashKkt?.body"
             :loading="isLoading"
             :error="error"
-            @change="handleTableChange"
+            @change="handleTableChange('cashKkt')"
           />
         </div>
       </section>
@@ -309,7 +333,7 @@
             :initial-data="tableNonCash?.body"
             :loading="isLoading"
             :error="error"
-            @change="handleTableChange"
+            @change="handleTableChange('nonCash')"
           />
         </div>
       </section>
@@ -325,7 +349,7 @@
             :initial-data="tableOtherSum?.body"
             :loading="isLoading"
             :error="error"
-            @change="handleTableChange"
+            @change="handleTableChange('')"
           />
         </div>
       </section>
