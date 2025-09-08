@@ -78,6 +78,8 @@
   const {
     handleBaseInput,
     formatBaseValue,
+    shouldShowBaseError,
+    preventNonNumericInput,
     formatCurrency,
     savingReport,
     isSaving,
@@ -203,11 +205,21 @@
             >
               <div :class="[$style.tableCell, $style.sumCell]" :colspan="2">
                 <input
-                  :value="baseComparisonValue"
+                  :value="
+                    baseComparisonValue !== null ? baseComparisonValue : ''
+                  "
                   type="text"
-                  :class="$style.baseInput"
+                  inputmode="numeric"
+                  pattern="[0-9]*"
+                  required
+                  placeholder="0"
+                  :class="[
+                    $style.baseInput,
+                    { [$style.errorInput]: shouldShowBaseError() },
+                  ]"
                   @input="handleBaseInput($event)"
-                  @blur="formatBaseValue()"
+                  @blur="formatBaseValue($event)"
+                  @keypress="preventNonNumericInput"
                 />
                 <span>₽</span>
               </div>
@@ -299,7 +311,7 @@
         <UButton
           class="steps-nav-btn ghost"
           :loading="isSaving"
-          :disabled="reportSaved"
+          :disabled="reportSaved || shouldShowBaseError()"
           @click="savingReport"
         >
           {{ isSaving ? "Формирование..." : "Сформировать отчет" }}
@@ -433,5 +445,10 @@
       border-color: var(--a-accentPrimary);
       box-shadow: 0 0 0 2px rgba(var(--a-accentPrimaryRgb), 0.2);
     }
+  }
+
+  .errorInput {
+    border: 1px solid var(--a-borderError) !important;
+    border-radius: rem(10) !important;
   }
 </style>
