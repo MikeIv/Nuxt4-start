@@ -364,7 +364,7 @@
           <UButton
             class="steps-nav-btn ghost"
             :loading="isSaving"
-            :disabled="!isDataChanged && !isFormValid"
+            :disabled="!isDataChanged || !isFormValid"
             @click="saveData"
           >
             Сохранить как черновик
