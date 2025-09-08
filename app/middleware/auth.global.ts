@@ -1,6 +1,13 @@
 // app/middleware/auth.ts
 import { useUserStore } from "~/stores/userData";
 
+interface ApiError {
+  response?: {
+    status?: number;
+    data?: { message?: string };
+  };
+}
+
 export default defineNuxtRouteMiddleware(async (to) => {
   if (import.meta.server) return;
 
@@ -26,12 +33,20 @@ export default defineNuxtRouteMiddleware(async (to) => {
     try {
       await fetchUser();
     } catch (error: unknown) {
-      if (error.response?.status === 401) {
-        await authStore.logOut();
-        return navigateTo("/login");
+      const err = error as ApiError;
+      if (err?.response?.status === 401) {
+        // Пробуем обновить токен
+        try {
+          await authStore.refreshToken();
+          await fetchUser(); // повторяем запрос с новым токеном
+        } catch {
+          // Если refresh тоже не сработал → logout и редирект
+          await authStore.logOut();
+          return navigateTo("/login");
+        }
+      } else {
+        console.error("Failed to fetch user data:", error);
       }
-      console.error("Failed to fetch user data:", error);
-      // Позволяем продолжить, но показываем ошибку в компоненте
     }
   }
 });
