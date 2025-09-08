@@ -184,7 +184,17 @@
             :key="rowIndex"
             :class="$style.tableRow"
           >
-            <div :class="[$style.tableCell, $style.nameCell]">
+            <div
+              :class="[
+                $style.tableCell,
+                $style.nameCell,
+                {
+                  [$style.firstCell]: rowIndex === 0,
+                  [$style.lastCell]:
+                    rowIndex === resulTableData.body.length - 1,
+                },
+              ]"
+            >
               {{ row.name }}
             </div>
 
@@ -227,7 +237,7 @@
               <div :class="$style.tableCell">
                 {{ formatCurrency(row.with_nds) }}
               </div>
-              <div :class="$style.tableCell">
+              <div :class="[$style.tableCell, $style.bottomRightCell]">
                 {{ formatCurrency(row.without_nds) }}
               </div>
             </template>
@@ -256,8 +266,9 @@
           class="steps-nav-btn ghost"
           :disabled="reportSaved"
           @click="handleBack"
-          >Назад</UButton
         >
+          Назад
+        </UButton>
       </template>
       <template #action>
         <UButton
@@ -314,10 +325,11 @@
 
   .table {
     display: grid;
-    grid-template-columns: 1fr 240px 240px;
-    max-width: rem(820);
+    grid-template-columns: 1fr rem(250) rem(250);
+    max-width: rem(900);
     border: none;
     font-size: rem(14);
+    margin-left: rem(70);
   }
 
   .tableRow {
@@ -328,9 +340,25 @@
     display: flex;
     justify-content: center;
     padding: rem(12) rem(8);
-    background-color: var(--a-bgLight);
+    height: rem(40);
     font-weight: bold;
     text-align: center;
+    align-items: center;
+    background-color: var(--color-primary-200);
+    &:not(:first-child):not(:last-child) {
+      border-right: 1px solid var(--a-borderAccentLight);
+      border-top-left-radius: rem(10);
+      -webkit-box-shadow: -5px 5px 20px -4px rgba(0, 0, 0, 0.2);
+      -moz-box-shadow: -5px 5px 20px -4px rgba(0, 0, 0, 0.2);
+      box-shadow: -5px 5px 20px -4px rgba(0, 0, 0, 0.2);
+    }
+
+    &:last-child {
+      border-top-right-radius: rem(10);
+      -webkit-box-shadow: 5px 5px 20px -4px rgba(0, 0, 0, 0.2);
+      -moz-box-shadow: 5px 5px 20px -4px rgba(0, 0, 0, 0.2);
+      box-shadow: 5px 5px 10px -4px rgba(0, 0, 0, 0.4);
+    }
 
     &:first-child {
       background-color: transparent;
@@ -342,11 +370,21 @@
     justify-content: center;
     align-items: center;
     padding: rem(12) rem(8);
-    background-color: var(--a-white);
-    border-bottom: 1px solid var(--a-borderLght);
-    border-right: 1px solid var(--a-borderLght);
+    margin-bottom: rem(7);
+    height: rem(65);
+    background-color: var(--color-primary-100);
     font-weight: 600;
     color: var(--a-accentTextExDark);
+    &:not(:first-child) {
+      font-size: rem(18);
+      border: 1px solid var(--a-bgGrayLight);
+      -webkit-box-shadow: 1px 3px 5px 0px rgba(0, 0, 0, 0.4);
+      -moz-box-shadow: 1px 3px 5px 0px rgba(0, 0, 0, 0.4);
+      box-shadow: 1px 3px 5px 0px rgba(0, 0, 0, 0.4);
+    }
+    &:nth-child(3) {
+      border-left: none;
+    }
   }
 
   .nameCell {
@@ -355,7 +393,22 @@
     align-items: center;
     font-weight: 600;
     color: var(--a-mainText);
-    background-color: var(--a-white);
+    background-color: var(--color-primary-100);
+    -webkit-box-shadow: 0px 3px 5px 0px rgba(0, 0, 0, 0.4);
+    -moz-box-shadow: 0px 3px 5px 0px rgba(0, 0, 0, 0.4);
+    box-shadow: 0px 3px 5px 0px rgba(0, 0, 0, 0.4);
+  }
+
+  .firstCell {
+    border-top-left-radius: rem(10);
+  }
+
+  .lastCell {
+    border-bottom-left-radius: rem(10);
+  }
+
+  .bottomRightCell {
+    border-bottom-right-radius: rem(10);
   }
 
   .sumCell {
@@ -366,13 +419,14 @@
   }
 
   .baseInput {
-    width: 80%;
+    width: 60%;
+    margin-right: rem(10);
     padding: rem(4) rem(8);
-    text-align: left;
-    font-size: rem(14);
-    border: 1px solid var(--a-borderMain);
-    border-radius: rem(4);
-    background-color: var(--a-mainBg);
+    text-align: center;
+    font-size: rem(18);
+    border: 2px solid var(--a-borderMain);
+    border-radius: rem(10);
+    background-color: var(--a-white);
 
     &:focus {
       outline: none;
