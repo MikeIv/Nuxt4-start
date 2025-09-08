@@ -2,6 +2,7 @@
   import { useStepOneStore } from "~/stores/stepOne";
   import { useStepTwoStore } from "~/stores/stepTwo";
   import { useStepThreeStore } from "~/stores/stepThree";
+  import { useStepFourStore } from "~/stores/stepFour";
   import { useToast, onBeforeRouteLeave } from "#imports";
 
   onBeforeRouteLeave(() => {
@@ -9,6 +10,7 @@
       stepOneStore.reset();
       stepTwoStore.reset();
       stepThreeStore.reset();
+      stepFourStore.reset();
       shouldResetOnLeave.value = false;
     }
   });
@@ -16,6 +18,7 @@
   const stepOneStore = useStepOneStore();
   const stepTwoStore = useStepTwoStore();
   const stepThreeStore = useStepThreeStore();
+  const stepFourStore = useStepFourStore();
 
   const tableRef = ref();
 
