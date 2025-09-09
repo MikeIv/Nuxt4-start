@@ -14,47 +14,67 @@ export const useAuthStore = defineStore("auth", () => {
   const token = ref<string | null>(null);
   const isLoading = ref(false);
   const error = ref<string | null>(null);
-  const refreshTimeout = ref<NodeJS.Timeout | null>(null);
+  const refreshInterval = ref<NodeJS.Timeout | null>(null);
   const config = useRuntimeConfig();
+
+  const refreshDelay = 13 * 60 * 1000; // 13 минут
+  const accessMaxAge = 15 * 60; // 15 минут
 
   const router = useRouter();
   const authStore = useAuthStore();
 
   // Сохраняем токен и настраиваем таймер обновления
-  const setToken = (newToken: string) => {
-    token.value = newToken;
-    const cookie = useCookie("token", {
-      maxAge: 60 * 120, // 120 минут (как access token)
+  const setToken = (accessToken: string, refreshToken?: string) => {
+    token.value = accessToken;
+    const accessCookie = useCookie("access_token", {
+      maxAge: accessMaxAge,
       secure: true,
       sameSite: "strict",
     });
-    cookie.value = newToken;
+    accessCookie.value = accessToken;
 
-    scheduleTokenRefresh(120 * 60 * 1000); // 120 минут
+    if (refreshToken) {
+      const refreshCookie = useCookie("refresh_token", {
+        maxAge: 60 * 60 * 24 * 30, // 30 дней
+        secure: true,
+        sameSite: "strict",
+      });
+      refreshCookie.value = refreshToken;
+    }
+
+    startRefreshInterval();
   };
 
   const clearToken = () => {
     token.value = null;
-    useCookie("token").value = null;
-    if (refreshTimeout.value) {
-      clearTimeout(refreshTimeout.value);
-      refreshTimeout.value = null;
-    }
+
+    const accessCookie = useCookie("access_token");
+    const refreshCookie = useCookie("refresh_token");
+
+    accessCookie.value = null;
+    refreshCookie.value = null;
+
+    stopRefreshInterval();
   };
 
-  const scheduleTokenRefresh = (delay: number) => {
-    if (refreshTimeout.value) {
-      clearTimeout(refreshTimeout.value);
-    }
-
-    refreshTimeout.value = setTimeout(async () => {
+  // Интервал автообновления access token
+  const startRefreshInterval = () => {
+    stopRefreshInterval();
+    refreshInterval.value = setInterval(async () => {
       try {
         await refreshToken();
       } catch (err) {
         console.error("Failed to refresh token:", err);
         await logOut();
       }
-    }, delay);
+    }, refreshDelay);
+  };
+
+  const stopRefreshInterval = () => {
+    if (refreshInterval.value) {
+      clearInterval(refreshInterval.value);
+      refreshInterval.value = null;
+    }
   };
 
   // Основной метод обновления токена
@@ -70,12 +90,18 @@ export const useAuthStore = defineStore("auth", () => {
       });
 
       if (response.success) {
-        setToken(response.payload.access_token);
+        setToken(response.payload.access_token, response.payload.refresh_token);
       }
 
       return response;
     } catch (err: unknown) {
-      error.value = err.data?.message || "Ошибка обновления токена";
+      const e = err as { data?: { message?: string } } | Error;
+      error.value =
+        "data" in e && e.data?.message
+          ? e.data.message
+          : e instanceof Error
+            ? e.message
+            : "Ошибка обновления токена";
       throw err;
     }
   };
@@ -93,12 +119,18 @@ export const useAuthStore = defineStore("auth", () => {
       });
 
       if (response.success) {
-        setToken(response.payload.access_token);
+        setToken(response.payload.access_token, response.payload.refresh_token);
       }
 
       return response;
     } catch (err: unknown) {
-      error.value = err.data?.message || "Ошибка авторизации";
+      const e = err as { data?: { message?: string } } | Error;
+      error.value =
+        "data" in e && e.data?.message
+          ? e.data.message
+          : e instanceof Error
+            ? e.message
+            : "Ошибка авторизации";
       throw err;
     } finally {
       isLoading.value = false;
@@ -130,10 +162,10 @@ export const useAuthStore = defineStore("auth", () => {
   };
 
   const init = () => {
-    const savedToken = useCookie("token").value;
+    const savedToken = useCookie("access_token").value;
     if (savedToken) {
       token.value = savedToken;
-      scheduleTokenRefresh(14 * 60 * 1000);
+      startRefreshInterval();
     }
   };
 
@@ -149,5 +181,6 @@ export const useAuthStore = defineStore("auth", () => {
     logIn,
     logOut,
     refreshToken,
+    setToken,
   };
 });

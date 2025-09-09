@@ -14,7 +14,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
   const userStore = useUserStore();
   const authStore = useAuthStore();
   const { fetchUser } = useUserData();
-  const token = useCookie("token").value;
+  const token = useCookie("access_token").value;
   const isLoginPage = to.path === "/login";
 
   if (token && !authStore.token) {
