@@ -1,7 +1,8 @@
 import svgLoader from "vite-svg-loader";
 
 const API_BASE_URL =
-  process.env.NUXT_PUBLIC_API_BASE || "https://lk-schelk.holyhands.ru/api/v1";
+  process.env.NUXT_PUBLIC_API_BASE ||
+  "https://lk-schelkovsky-api.grandfs-develop.ru/api/v1";
 const IS_DEV = process.env.NODE_ENV === "development";
 export default defineNuxtConfig({
   compatibilityDate: "2025-07-15",
