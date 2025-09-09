@@ -1,4 +1,75 @@
 <script setup lang="ts">
+  import { useStepOneStore } from "~/stores/stepOne";
+  import { useStepTwoStore } from "~/stores/stepTwo";
+  import { useStepThreeStore } from "~/stores/stepThree";
+  import { useToast, onBeforeRouteLeave } from "#imports";
+
+  onBeforeRouteLeave(() => {
+    if (shouldResetOnLeave.value) {
+      stepOneStore.reset();
+      stepTwoStore.reset();
+      stepThreeStore.reset();
+      shouldResetOnLeave.value = false;
+    }
+  });
+
+  const stepOneStore = useStepOneStore();
+  const stepTwoStore = useStepTwoStore();
+  const stepThreeStore = useStepThreeStore();
+
+  const tableRef = ref();
+
+  const isSavingDraft = ref(false);
+  const saveSuccess = ref(false);
+  const saveSuccessMessage = ref("");
+
+  const saveDraft = async () => {
+    isSavingDraft.value = true;
+    try {
+      const draft = {
+        status: "Draft",
+        report: {
+          visitors_count: stepOneStore.visitorsCount || 0,
+          receipts_count: stepOneStore.checksCount || 0,
+          period: {
+            start: stepOneStore.dateRange?.[0] || new Date().toISOString(),
+            end: stepOneStore.dateRange?.[1] || new Date().toISOString(),
+          },
+          kkts: stepTwoStore.kkt?.rows || [],
+          cash_turnovers_without_kkt: stepTwoStore.cashKkt?.rows || [],
+          cash_turnovers_non_cash: stepTwoStore.nonCash?.rows || [],
+          cash_turnovers_other: stepTwoStore.otherSum?.rows || [],
+          kkts_exclusions: stepThreeStore.refunds?.rows || [],
+          cash_turnover_exclusions_other:
+            stepThreeStore.otherAmounts?.rows || [],
+          turnover_calculation: tableRef.value?.getTableData()?.rows || [],
+        },
+      };
+
+      await loadReport("/tenants/reports", {
+        method: "POST",
+        body: draft,
+      });
+
+      saveSuccess.value = true;
+      saveSuccessMessage.value = "Данные успешно сохранены в черновик";
+
+      setTimeout(() => {
+        saveSuccess.value = false;
+        saveSuccessMessage.value = "";
+      }, 3000);
+    } catch (err) {
+      console.error("Ошибка сохранения черновика:", err);
+      useToast().add({
+        title: "Ошибка",
+        description: "Не удалось сохранить черновик",
+        color: "red",
+      });
+    } finally {
+      isSavingDraft.value = false;
+    }
+  };
+
   const handleBack = () => {
     console.log("Back");
     navigateTo("/record/3");
@@ -7,9 +78,13 @@
   const {
     handleBaseInput,
     formatBaseValue,
+    shouldShowBaseError,
+    preventNonNumericInput,
     formatCurrency,
     savingReport,
     isSaving,
+    reportSaved,
+    shouldResetOnLeave,
     sumWithVAT,
     sumWithoutVAT,
     baseComparisonValue,
@@ -52,7 +127,7 @@
         without_nds: percentageWithoutVAT,
       },
       {
-        name: "База сравнения за отчетный период",
+        name: "База сравнения за отчетный период, руб.",
         sum: "0",
       },
       {
@@ -111,19 +186,42 @@
             :key="rowIndex"
             :class="$style.tableRow"
           >
-            <div :class="[$style.tableCell, $style.nameCell]">
+            <div
+              :class="[
+                $style.tableCell,
+                $style.nameCell,
+                {
+                  [$style.firstCell]: rowIndex === 0,
+                  [$style.lastCell]:
+                    rowIndex === resulTableData.body.length - 1,
+                },
+              ]"
+            >
               {{ row.name }}
             </div>
 
-            <template v-if="row.name === 'База сравнения за отчетный период'">
+            <template
+              v-if="row.name === 'База сравнения за отчетный период, руб.'"
+            >
               <div :class="[$style.tableCell, $style.sumCell]" :colspan="2">
                 <input
-                  :value="baseComparisonValue"
+                  :value="
+                    baseComparisonValue !== null ? baseComparisonValue : ''
+                  "
                   type="text"
-                  :class="$style.baseInput"
+                  inputmode="numeric"
+                  pattern="[0-9]*"
+                  required
+                  placeholder="0"
+                  :class="[
+                    $style.baseInput,
+                    { [$style.errorInput]: shouldShowBaseError() },
+                  ]"
                   @input="handleBaseInput($event)"
-                  @blur="formatBaseValue()"
+                  @blur="formatBaseValue($event)"
+                  @keypress="preventNonNumericInput"
                 />
+                <span>₽</span>
               </div>
             </template>
             <template v-else-if="row.name === 'Процент с Денежного оборота, %'">
@@ -151,7 +249,7 @@
               <div :class="$style.tableCell">
                 {{ formatCurrency(row.with_nds) }}
               </div>
-              <div :class="$style.tableCell">
+              <div :class="[$style.tableCell, $style.bottomRightCell]">
                 {{ formatCurrency(row.without_nds) }}
               </div>
             </template>
@@ -176,12 +274,44 @@
 
     <StepsCoreNavigation :step="4" :show-back="true" :show-next="false">
       <template #back>
-        <UButton class="steps-nav-btn ghost" @click="handleBack">Назад</UButton>
+        <UButton
+          class="steps-nav-btn ghost"
+          :disabled="reportSaved"
+          @click="handleBack"
+        >
+          Назад
+        </UButton>
       </template>
       <template #action>
         <UButton
           class="steps-nav-btn ghost"
+          :loading="isSavingDraft"
+          :disabled="reportSaved"
+          @click="saveDraft"
+        >
+          Сохранить как черновик
+        </UButton>
+
+        <transition
+          enter-active-class="transition-opacity duration-300"
+          enter-from-class="opacity-0"
+          enter-to-class="opacity-100"
+          leave-active-class="transition-opacity duration-300"
+          leave-from-class="opacity-100"
+          leave-to-class="opacity-0"
+        >
+          <div
+            v-if="saveSuccess"
+            class="flex items-center text-green-600 text-sm font-medium ml-2"
+          >
+            <UIcon name="i-heroicons-check-circle" class="w-5 h-5 mr-1" />
+            {{ saveSuccessMessage }}
+          </div>
+        </transition>
+        <UButton
+          class="steps-nav-btn ghost"
           :loading="isSaving"
+          :disabled="reportSaved || shouldShowBaseError()"
           @click="savingReport"
         >
           {{ isSaving ? "Формирование..." : "Сформировать отчет" }}
@@ -207,10 +337,11 @@
 
   .table {
     display: grid;
-    grid-template-columns: 1fr 240px 240px;
-    max-width: rem(820);
+    grid-template-columns: 1fr rem(250) rem(250);
+    max-width: rem(900);
     border: none;
     font-size: rem(14);
+    margin-left: rem(70);
   }
 
   .tableRow {
@@ -221,9 +352,25 @@
     display: flex;
     justify-content: center;
     padding: rem(12) rem(8);
-    background-color: var(--a-bgLight);
+    height: rem(40);
     font-weight: bold;
     text-align: center;
+    align-items: center;
+    background-color: var(--color-primary-200);
+    &:not(:first-child):not(:last-child) {
+      border-right: 1px solid var(--a-borderAccentLight);
+      border-top-left-radius: rem(10);
+      -webkit-box-shadow: -5px 5px 20px -4px rgba(0, 0, 0, 0.2);
+      -moz-box-shadow: -5px 5px 20px -4px rgba(0, 0, 0, 0.2);
+      box-shadow: -5px 5px 20px -4px rgba(0, 0, 0, 0.2);
+    }
+
+    &:last-child {
+      border-top-right-radius: rem(10);
+      -webkit-box-shadow: 5px 5px 20px -4px rgba(0, 0, 0, 0.2);
+      -moz-box-shadow: 5px 5px 20px -4px rgba(0, 0, 0, 0.2);
+      box-shadow: 5px 5px 10px -4px rgba(0, 0, 0, 0.4);
+    }
 
     &:first-child {
       background-color: transparent;
@@ -235,11 +382,21 @@
     justify-content: center;
     align-items: center;
     padding: rem(12) rem(8);
-    background-color: var(--a-white);
-    border-bottom: 1px solid var(--a-borderLght);
-    border-right: 1px solid var(--a-borderLght);
+    margin-bottom: rem(7);
+    height: rem(65);
+    background-color: var(--color-primary-100);
     font-weight: 600;
     color: var(--a-accentTextExDark);
+    &:not(:first-child) {
+      font-size: rem(18);
+      border: 1px solid var(--a-bgGrayLight);
+      -webkit-box-shadow: 1px 3px 5px 0px rgba(0, 0, 0, 0.4);
+      -moz-box-shadow: 1px 3px 5px 0px rgba(0, 0, 0, 0.4);
+      box-shadow: 1px 3px 5px 0px rgba(0, 0, 0, 0.4);
+    }
+    &:nth-child(3) {
+      border-left: none;
+    }
   }
 
   .nameCell {
@@ -248,7 +405,22 @@
     align-items: center;
     font-weight: 600;
     color: var(--a-mainText);
-    background-color: var(--a-white);
+    background-color: var(--color-primary-100);
+    -webkit-box-shadow: 0px 3px 5px 0px rgba(0, 0, 0, 0.4);
+    -moz-box-shadow: 0px 3px 5px 0px rgba(0, 0, 0, 0.4);
+    box-shadow: 0px 3px 5px 0px rgba(0, 0, 0, 0.4);
+  }
+
+  .firstCell {
+    border-top-left-radius: rem(10);
+  }
+
+  .lastCell {
+    border-bottom-left-radius: rem(10);
+  }
+
+  .bottomRightCell {
+    border-bottom-right-radius: rem(10);
   }
 
   .sumCell {
@@ -259,18 +431,24 @@
   }
 
   .baseInput {
-    width: 80%;
+    width: 60%;
+    margin-right: rem(10);
     padding: rem(4) rem(8);
-    text-align: left;
-    font-size: rem(14);
-    border: 1px solid var(--a-borderMain);
-    border-radius: rem(4);
-    background-color: var(--a-mainBg);
+    text-align: center;
+    font-size: rem(18);
+    border: 2px solid var(--a-borderMain);
+    border-radius: rem(10);
+    background-color: var(--a-white);
 
     &:focus {
       outline: none;
       border-color: var(--a-accentPrimary);
       box-shadow: 0 0 0 2px rgba(var(--a-accentPrimaryRgb), 0.2);
     }
+  }
+
+  .errorInput {
+    border: 1px solid var(--a-borderError) !important;
+    border-radius: rem(10) !important;
   }
 </style>

@@ -10,12 +10,14 @@ interface TableData<T> {
 interface StepThreeState {
   refunds: TableData<RefundsTableRow>;
   otherAmounts: TableData<OtherAmountsTableRow>;
+  isChanged: boolean;
 }
 
 export const useStepThreeStore = defineStore("stepThree", {
   state: (): StepThreeState => ({
     refunds: { rows: [], withVAT: 0, VAT: 0 },
     otherAmounts: { rows: [], withVAT: 0, VAT: 0 },
+    isChanged: false,
   }),
 
   getters: {
@@ -27,6 +29,7 @@ export const useStepThreeStore = defineStore("stepThree", {
   actions: {
     reset() {
       this.$reset();
+      localStorage.removeItem("step-three-storage");
     },
 
     updateTable<T extends keyof StepThreeState>(
@@ -34,6 +37,7 @@ export const useStepThreeStore = defineStore("stepThree", {
       data: { rows: StepThreeState[T]["rows"]; withVAT: number; VAT: number },
     ) {
       this[table] = data;
+      this.isChanged = true;
     },
 
     getAllData() {

@@ -167,6 +167,8 @@
       | "files",
   ): boolean => {
     return invalidFields.value[index]?.includes(field) || false;
+
+    return false;
   };
 
   const validateRow = (index: number) => {
@@ -194,6 +196,19 @@
       !fieldValidations.amount_nds(amountNds)
     ) {
       errors.push("amount_nds");
+    }
+
+    if (index < 4) {
+      const isAmountFilled =
+        (amountWithNds && amountWithNds !== "0,00") ||
+        (amountNds && amountNds !== "0,00");
+
+      if (
+        isAmountFilled &&
+        (!settlementAccount || settlementAccount.trim() === "")
+      ) {
+        errors.push("settlement_account_number");
+      }
     }
 
     const isNewlyAddedRow = addedRowsIndices.value.includes(index);
@@ -478,7 +493,6 @@
             placeholder="Введите название"
             class="name-input"
             :class="[
-              'name-input',
               {
                 [$style.errorInput]: shouldShowError(index, 'name'),
               },

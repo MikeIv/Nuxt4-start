@@ -2,6 +2,7 @@ import { useApi } from "~/composables/useApi";
 import { useStepOneStore } from "~/stores/stepOne";
 import { useStepTwoStore } from "~/stores/stepTwo";
 import { useStepThreeStore } from "~/stores/stepThree";
+import { useStepFourStore } from "~/stores/stepFour";
 
 export const useReportCalculation = () => {
   const {
@@ -13,10 +14,17 @@ export const useReportCalculation = () => {
   const stepOneStore = useStepOneStore();
   const stepTwoStore = useStepTwoStore();
   const stepThreeStore = useStepThreeStore();
+  const stepFourStore = useStepFourStore();
 
   const hasChanges = ref(false);
-  const baseComparisonValue = ref(0);
+  const baseComparisonValue = ref<number | null>(null);
+  const baseComparisonError = ref(true);
   const isSaving = ref(false);
+  const reportSaved = ref(false);
+  const shouldResetOnLeave = ref(false);
+
+  baseComparisonValue.value = stepFourStore.baseComparisonValue;
+  baseComparisonError.value = baseComparisonValue.value === null;
 
   const rentPercentage = computed(() => {
     return reportData.value?.report?.rent_percentage ?? 0;
@@ -62,17 +70,52 @@ export const useReportCalculation = () => {
   };
 
   const handleBaseInput = (event: Event) => {
-    const input = event.target as HTMLInputElement;
-    baseComparisonValue.value =
-      parseFloat(input.value.replace(/[^\d.]/g, "")) || 0;
-    hasChanges.value = true;
+    const target = event.target as HTMLInputElement;
+    const cleanedValue: number | null = target.value.replace(/\D/g, "")
+      ? Number(target.value.replace(/\D/g, ""))
+      : null;
+
+    baseComparisonValue.value = cleanedValue;
+    stepFourStore.setBaseComparisonValue(cleanedValue); // сохраняем в store
+
+    baseComparisonError.value = cleanedValue === null;
+
+    console.log("baseComparisonValue:", baseComparisonValue.value);
   };
 
-  const formatBaseValue = () => {
-    if (!isNaN(baseComparisonValue.value)) {
-      baseComparisonValue.value = parseFloat(
-        baseComparisonValue.value.toFixed(2),
-      );
+  // Блокировка ввода любых символов кроме цифр
+  const preventNonNumericInput = (event: KeyboardEvent) => {
+    const allowedKeys = [
+      "Backspace",
+      "Delete",
+      "Tab",
+      "ArrowLeft",
+      "ArrowRight",
+      "ArrowUp",
+      "ArrowDown",
+      "Home",
+      "End",
+      "Enter",
+    ];
+
+    if (allowedKeys.includes(event.key)) return;
+
+    if (!/^\d$/.test(event.key)) {
+      event.preventDefault();
+    }
+  };
+
+  // Проверка ошибки (для красного бордера)
+  const shouldShowBaseError = () => {
+    return baseComparisonError.value;
+  };
+
+  const formatBaseValue = (event: FocusEvent) => {
+    const target = event.target as HTMLInputElement;
+    if (baseComparisonValue.value !== null) {
+      target.value = `${baseComparisonValue.value},00`;
+    } else {
+      target.value = "";
     }
   };
 
@@ -166,6 +209,9 @@ export const useReportCalculation = () => {
         throw new Error("Не удалось сохранить отчет");
       }
 
+      reportSaved.value = true;
+      shouldResetOnLeave.value = true;
+
       return response;
     } catch (err) {
       console.error("Ошибка при сохранении отчета:", err);
@@ -179,6 +225,8 @@ export const useReportCalculation = () => {
     hasChanges,
     baseComparisonValue,
     isSaving,
+    reportSaved,
+    shouldResetOnLeave,
     sumWithVAT,
     sumWithoutVAT,
     rentPercentage,
@@ -188,6 +236,8 @@ export const useReportCalculation = () => {
     paymentWithoutVAT,
     formatCurrency,
     handleBaseInput,
+    preventNonNumericInput,
+    shouldShowBaseError,
     formatBaseValue,
     savingReport,
     loadReport,
