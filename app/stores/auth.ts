@@ -1,5 +1,4 @@
 import { defineStore } from "pinia";
-import { useCookie } from "#app";
 
 interface TokenResponse {
   success: boolean;
@@ -10,6 +9,10 @@ interface TokenResponse {
   };
 }
 
+const ACCESS_TOKEN_MAX_AGE = 60 * 60; // 60 минут в секундах (для cookie)
+const REFRESH_TOKEN_MAX_AGE = 60 * 60 * 24 * 30; // 30 дней в секундах (для cookie)
+const REFRESH_DELAY = 60 * 60 * 1000; // 60 минут для setInterval
+
 export const useAuthStore = defineStore("auth", () => {
   const token = ref<string | null>(null);
   const isLoading = ref(false);
@@ -17,29 +20,27 @@ export const useAuthStore = defineStore("auth", () => {
   const refreshInterval = ref<NodeJS.Timeout | null>(null);
   const config = useRuntimeConfig();
 
-  const refreshDelay = 13 * 60 * 1000; // 13 минут
-  const accessMaxAge = 15 * 60; // 15 минут
-
   const router = useRouter();
-  const authStore = useAuthStore();
 
-  // Сохраняем токен и настраиваем таймер обновления
   const setToken = (accessToken: string, refreshToken?: string) => {
     token.value = accessToken;
-    const accessCookie = useCookie("access_token", {
-      maxAge: accessMaxAge,
-      secure: true,
-      sameSite: "strict",
-    });
-    accessCookie.value = accessToken;
 
-    if (refreshToken) {
-      const refreshCookie = useCookie("refresh_token", {
-        maxAge: 60 * 60 * 24 * 30, // 30 дней
+    if (import.meta.client) {
+      const accessCookie = useCookie("access_token", {
+        maxAge: ACCESS_TOKEN_MAX_AGE,
         secure: true,
         sameSite: "strict",
       });
-      refreshCookie.value = refreshToken;
+      accessCookie.value = accessToken;
+
+      if (refreshToken) {
+        const refreshCookie = useCookie("refresh_token", {
+          maxAge: REFRESH_TOKEN_MAX_AGE,
+          secure: true,
+          sameSite: "strict",
+        });
+        refreshCookie.value = refreshToken;
+      }
     }
 
     startRefreshInterval();
@@ -48,17 +49,20 @@ export const useAuthStore = defineStore("auth", () => {
   const clearToken = () => {
     token.value = null;
 
-    const accessCookie = useCookie("access_token");
-    const refreshCookie = useCookie("refresh_token");
+    if (import.meta.client) {
+      const accessCookie = useCookie("access_token");
+      const refreshCookie = useCookie("refresh_token");
 
-    accessCookie.value = null;
-    refreshCookie.value = null;
+      accessCookie.value = null;
+      refreshCookie.value = null;
+    }
 
     stopRefreshInterval();
   };
 
-  // Интервал автообновления access token
   const startRefreshInterval = () => {
+    if (!import.meta.client) return;
+
     stopRefreshInterval();
     refreshInterval.value = setInterval(async () => {
       try {
@@ -67,7 +71,7 @@ export const useAuthStore = defineStore("auth", () => {
         console.error("Failed to refresh token:", err);
         await logOut();
       }
-    }, refreshDelay);
+    }, REFRESH_DELAY);
   };
 
   const stopRefreshInterval = () => {
@@ -77,15 +81,26 @@ export const useAuthStore = defineStore("auth", () => {
     }
   };
 
-  // Основной метод обновления токена
   const refreshToken = async (): Promise<TokenResponse> => {
     try {
+      const refreshTokenCookie = import.meta.client
+        ? useCookie("refresh_token").value
+        : null;
+
+      if (!refreshTokenCookie) {
+        await logOut();
+        throw new Error("Refresh token not found");
+      }
+
       const response = await $fetch<TokenResponse>("/auth/refresh", {
         baseURL: config.public.apiBase,
         method: "POST",
         credentials: "include",
         headers: {
           Accept: "application/json",
+          ...(refreshTokenCookie
+            ? { Authorization: `Bearer ${refreshTokenCookie}` }
+            : {}),
         },
       });
 
@@ -139,29 +154,32 @@ export const useAuthStore = defineStore("auth", () => {
 
   const logOut = async () => {
     try {
+      const currentToken = token.value;
       await $fetch("/auth/logout", {
         baseURL: config.public.apiBase,
         method: "POST",
         credentials: "include",
-        headers: authStore.token
+        headers: currentToken
           ? {
-              Authorization: `Bearer ${authStore.token}`,
+              Authorization: `Bearer ${currentToken}`,
             }
           : {},
       }).catch((err) => {
-        // Игнорируем ошибки сервера при logout, так как главное - очистить клиентскую сторону
-        console.warn("Server logout failed (may be expected):", err.message);
+        console.warn("Server logout failed:", err.message);
       });
     } catch (err) {
       console.warn("Logout request failed:", err);
     } finally {
-      // Всегда очищаем токен на клиенте
       clearToken();
-      await router.push("/login");
+      if (import.meta.client) {
+        await router.push("/login");
+      }
     }
   };
 
   const init = () => {
+    if (!import.meta.client) return;
+
     const savedToken = useCookie("access_token").value;
     if (savedToken) {
       token.value = savedToken;
@@ -169,7 +187,9 @@ export const useAuthStore = defineStore("auth", () => {
     }
   };
 
-  init();
+  if (import.meta.client) {
+    init();
+  }
 
   const isAuthenticated = computed(() => !!token.value);
 

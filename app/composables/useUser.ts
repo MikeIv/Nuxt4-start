@@ -10,6 +10,7 @@ export const useUserData = () => {
 
     try {
       const result = await callApi("/user/me");
+      console.log("result###", result);
 
       if (result && "payload" in result && result.payload) {
         userStore.setUser(result.payload);
@@ -27,34 +28,6 @@ export const useUserData = () => {
       userStore.setLoading(false);
     }
   };
-
-  // const changeContract = async (
-  //   newContractId: number,
-  // ): Promise<UserData | null> => {
-  //   userStore.setLoading(true);
-  //   userStore.setError(null);
-  //
-  //   try {
-  //     const result = await callApi("/user/change-contract", {
-  //       method: "POST",
-  //       body: { contractId: newContractId },
-  //     });
-  //
-  //     if (result && "payload" in result && result.payload) {
-  //       userStore.setUser(result.payload);
-  //       return result.payload;
-  //     }
-  //
-  //     return null;
-  //   } catch (err) {
-  //     const errorMessage =
-  //       err instanceof Error ? err.message : "Failed to change contract";
-  //     userStore.setError(errorMessage);
-  //     return null;
-  //   } finally {
-  //     userStore.setLoading(false);
-  //   }
-  // };
 
   const updateProfile = async (
     profileData: Partial<UserData>,

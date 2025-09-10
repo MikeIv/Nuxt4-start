@@ -4,47 +4,40 @@ const API_BASE_URL =
   process.env.NUXT_PUBLIC_API_BASE ||
   "https://lk-schelkovsky-api.grandfs-develop.ru/api/v1";
 const IS_DEV = process.env.NODE_ENV === "development";
+
 export default defineNuxtConfig({
-  compatibilityDate: "2025-07-15",
+  compatibilityDate: "2024-07-15",
+
   runtimeConfig: {
     public: {
       apiBase: API_BASE_URL,
       isDev: IS_DEV,
     },
   },
-  nitro: {
-    devProxy: {
-      "/api": {
-        target: API_BASE_URL,
-        changeOrigin: true,
-        cors: true,
-        secure: false,
-        rewrite: (path) => path.replace(/^\/api/, ""),
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-        },
 
-        cookies: {
-          parse: true,
-          overwrite: true,
-        },
-      },
-    },
-    ...(!IS_DEV && {
-      minify: true,
-      prerender: {
-        crawlLinks: true,
-        failOnError: false,
-      },
-    }),
+  routeRules: {
+    "/_payload.json": { ssr: false },
+  },
+
+  ssr: false,
+
+  nitro: {
+    devProxy: IS_DEV
+      ? {
+          "/api/v1": {
+            target: API_BASE_URL.replace("/api/v1", ""),
+            changeOrigin: true,
+            secure: false,
+            rewrite: (path) => path.replace(/^\/api\/v1/, ""),
+          },
+        }
+      : undefined,
+
+    minify: !IS_DEV,
   },
 
   devtools: {
     enabled: IS_DEV,
-    timeline: {
-      enabled: IS_DEV,
-    },
   },
 
   build: {
@@ -57,15 +50,7 @@ export default defineNuxtConfig({
       "@pinia/nuxt",
       "truncate-html",
     ],
-    ...(!IS_DEV && {
-      analyze: {
-        analyzerMode: "static",
-        openAnalyzer: false,
-      },
-    }),
   },
-
-  ssr: false,
 
   devServer: {
     https: false,
@@ -77,11 +62,6 @@ export default defineNuxtConfig({
 
   features: {
     devLogs: false,
-  },
-  experimental: {
-    payloadExtraction: true,
-    componentIslands: true,
-    viewTransition: true,
   },
 
   modules: [
@@ -146,9 +126,9 @@ export default defineNuxtConfig({
     "~/assets/styles/variables/_z-index.scss",
     "~/assets/styles/variables/_colors.scss",
   ],
+
   postcss: {
     plugins: {
-      "@tailwindcss/postcss": {},
       autoprefixer: {},
     },
   },
@@ -156,7 +136,6 @@ export default defineNuxtConfig({
   googleFonts: {
     families: {
       Montserrat: [400, 500, 600, 700],
-      // Можно добавить другие шрифты
     },
     display: "swap",
   },
@@ -201,25 +180,6 @@ export default defineNuxtConfig({
         },
       },
     ],
-  },
-
-  routeRules: {
-    "/": { prerender: true, static: true },
-    "/assets/**": {
-      headers: { "Cache-Control": "public, max-age=31536000, immutable" },
-    },
-    "/_nuxt/**": {
-      headers: { "Cache-Control": "public, max-age=31536000, immutable" },
-    },
-    "/api/**": {
-      cors: true,
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization",
-        "Access-Control-Allow-Credentials": "true",
-      },
-    },
   },
 
   vite: {

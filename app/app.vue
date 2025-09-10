@@ -1,12 +1,8 @@
 <template>
   <UApp :toaster="toaster">
     <NuxtLayout>
-      <!-- Индикатор загрузки между страницами -->
-      <!--      <NuxtLoadingIndicator :color="'#00dc82'" :height="3" />-->
-
       <NuxtPage />
 
-      <!-- Глобальное уведомление для изменения маршрута -->
       <NuxtRouteAnnouncer />
     </NuxtLayout>
   </UApp>
@@ -24,6 +20,7 @@
     link: [
       { rel: "icon", type: "image/x-icon", href: "/favicon.ico" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
+      { rel: "preconnect", href: "https://fonts.gstatic.com", crossorigin: "" },
     ],
     bodyAttrs: {
       class: "min-h-screen bg-gray-50",
@@ -37,6 +34,7 @@
   html {
     scroll-behavior: smooth;
   }
+
   body {
     font-family: "Montserrat", sans-serif;
   }

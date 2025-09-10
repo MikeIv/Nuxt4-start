@@ -1,4 +1,3 @@
-// app/middleware/auth.ts
 import { useUserStore } from "~/stores/userData";
 
 interface ApiError {
@@ -10,6 +9,10 @@ interface ApiError {
 
 export default defineNuxtRouteMiddleware(async (to) => {
   if (import.meta.server) return;
+
+  if (to.path.includes("_payload.json") || to.path.startsWith("/api/")) {
+    return;
+  }
 
   const userStore = useUserStore();
   const authStore = useAuthStore();
@@ -38,9 +41,8 @@ export default defineNuxtRouteMiddleware(async (to) => {
         // Пробуем обновить токен
         try {
           await authStore.refreshToken();
-          await fetchUser(); // повторяем запрос с новым токеном
+          await fetchUser();
         } catch {
-          // Если refresh тоже не сработал → logout и редирект
           await authStore.logOut();
           return navigateTo("/login");
         }
