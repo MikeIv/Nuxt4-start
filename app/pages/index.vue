@@ -1,10 +1,6 @@
 <script setup lang="ts">
   import { useUserStore } from "~/stores/userData";
 
-  definePageMeta({
-    middleware: "auth",
-  });
-
   const userStore = useUserStore();
 
   // Данные уже есть в сторе после авторизации

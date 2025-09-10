@@ -1,13 +1,23 @@
-// app/middleware/auth.ts
 import { useUserStore } from "~/stores/userData";
+
+interface ApiError {
+  response?: {
+    status?: number;
+    data?: { message?: string };
+  };
+}
 
 export default defineNuxtRouteMiddleware(async (to) => {
   if (import.meta.server) return;
 
+  if (to.path.includes("_payload.json") || to.path.startsWith("/api/")) {
+    return;
+  }
+
   const userStore = useUserStore();
   const authStore = useAuthStore();
   const { fetchUser } = useUserData();
-  const token = useCookie("token").value;
+  const token = useCookie("access_token").value;
   const isLoginPage = to.path === "/login";
 
   if (token && !authStore.token) {
@@ -26,12 +36,19 @@ export default defineNuxtRouteMiddleware(async (to) => {
     try {
       await fetchUser();
     } catch (error: unknown) {
-      if (error.response?.status === 401) {
-        await authStore.logOut();
-        return navigateTo("/login");
+      const err = error as ApiError;
+      if (err?.response?.status === 401) {
+        // Пробуем обновить токен
+        try {
+          await authStore.refreshToken();
+          await fetchUser();
+        } catch {
+          await authStore.logOut();
+          return navigateTo("/login");
+        }
+      } else {
+        console.error("Failed to fetch user data:", error);
       }
-      console.error("Failed to fetch user data:", error);
-      // Позволяем продолжить, но показываем ошибку в компоненте
     }
   }
 });
