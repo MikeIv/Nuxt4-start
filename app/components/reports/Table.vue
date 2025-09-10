@@ -10,6 +10,7 @@
   import IconSort from "~/assets/icons/sort-alt.svg";
   import IconSortAsc from "~/assets/icons/sort-up.svg";
   import IconSortDesc from "~/assets/icons/sort-down.svg";
+  import IconDelete from "~/assets/icons/delete-icon.svg";
 
   const $style = useCssModule();
 
@@ -184,7 +185,7 @@
         case "can_edit":
           return {
             ...baseColumn,
-            size: 120,
+            size: 200,
             header: () =>
               h("div", { class: $style.headerWithCheckbox }, [
                 h("span", { class: $style.headerLabel }, header.label),
@@ -196,31 +197,56 @@
               if (report.status !== "Draft" || !report.can_edit) {
                 if (!report.can_edit) return null;
 
-                return h(
-                  "button",
-                  {
-                    class: $style.editButton,
-                    onClick: (e) => {
-                      e.stopPropagation();
-                      navigateTo(`/reports/edit/${report.id}`);
-                    },
-                  },
-                  [h(IconEdit, { class: $style.editIcon })],
-                );
+                // return h(
+                //   "button",
+                //   {
+                //     class: $style.editButton,
+                //     onClick: (e) => {
+                //       e.stopPropagation();
+                //       navigateTo(`/reports/edit/${report.id}`);
+                //     },
+                //   },
+                //   [h(IconEdit, { class: $style.editIcon })],
+                // );
               }
 
-              // Для черновиков показываем чекбокс и кнопку редактирования
+              // Для черновиков показываем кнопку редактирования и кнопку удалить
               return h("div", { class: $style.editCell }, [
                 h(
                   "button",
                   {
                     class: $style.editButton,
+                    disabled:
+                      selectedReports.value.size > 1 ||
+                      (selectedReports.value.size === 1 &&
+                        !selectedReports.value.has(report.id)),
                     onClick: (e) => {
                       e.stopPropagation();
                       navigateTo(`/reports/edit/${report.id}`);
                     },
                   },
-                  [h(IconEdit, { class: $style.editIcon })],
+                  [
+                    h(IconEdit, { class: $style.editIcon }),
+                    h("span", { class: $style.editText }, "Редактировать"),
+                  ],
+                ),
+                h(
+                  "button",
+                  {
+                    class: $style.deleteButton,
+                    disabled:
+                      selectedReports.value.size > 1 ||
+                      (selectedReports.value.size === 1 &&
+                        !selectedReports.value.has(report.id)),
+                    onClick: (e: Event) => {
+                      e.stopPropagation();
+                      console.log("Удалить отчёт", report.id);
+                    },
+                  },
+                  [
+                    h(IconDelete, { class: $style.editIcon }),
+                    h("span", { class: $style.editText }, "Удалить"),
+                  ],
                 ),
               ]);
             },
@@ -228,6 +254,7 @@
         case "can_download_documents":
           return {
             ...baseColumn,
+            size: 120,
             cell: ({ row }: { row: { original: Report; index: number } }) => {
               if (!row.original.can_download_documents) return null;
               return h(
@@ -247,7 +274,7 @@
         case "can_request_correction":
           return {
             ...baseColumn,
-            size: 150,
+            size: 120,
             cell: ({ row }: { row: { original: Report; index: number } }) => {
               if (!row.original.can_request_correction) return null;
 
@@ -582,9 +609,8 @@
 
   .editCell {
     display: flex;
-    align-items: center;
     justify-content: center;
-    gap: rem(8);
+    gap: rem(10);
   }
 
   .sortIcon {
@@ -622,11 +648,14 @@
     }
   }
 
-  .editButton {
-    background: none;
-    border: none;
+  .editButton,
+  .deleteButton {
+    display: inline-flex;
+    align-items: center;
+    gap: rem(6);
     padding: rem(4);
     border-radius: rem(4);
+    border: 1px solid var(--a-borderAccent);
     cursor: pointer;
     transition: background-color 0.2s;
 
@@ -641,9 +670,13 @@
   }
 
   .editIcon {
-    width: rem(16);
-    height: rem(16);
+    width: rem(13);
+    height: rem(13);
     color: var(--a-bgAccentDark);
+  }
+
+  .editText {
+    line-height: 1;
   }
 
   .footer {
