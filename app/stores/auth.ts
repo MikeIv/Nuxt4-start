@@ -19,7 +19,6 @@ export const useAuthStore = defineStore("auth", () => {
   const error = ref<string | null>(null);
   const refreshInterval = ref<NodeJS.Timeout | null>(null);
   const config = useRuntimeConfig();
-
   const router = useRouter();
 
   const setToken = (accessToken: string, refreshToken?: string) => {
