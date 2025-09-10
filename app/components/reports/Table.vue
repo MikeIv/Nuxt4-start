@@ -6,6 +6,7 @@
     getSortedRowModel,
     type SortingState,
   } from "@tanstack/vue-table";
+  import { useAuthStore } from "#imports";
   import IconEdit from "~/assets/icons/edit-icon.svg";
   import IconSort from "~/assets/icons/sort-alt.svg";
   import IconSortAsc from "~/assets/icons/sort-up.svg";
@@ -41,7 +42,19 @@
     };
   }
 
+  const authStore = useAuthStore();
+  const config = useRuntimeConfig();
+
   const props = defineProps<Props>();
+
+  const localReports = ref<Report[]>([...props.reports]);
+
+  watch(
+    () => props.reports,
+    (newReports) => {
+      localReports.value = [...newReports];
+    },
+  );
   const emit = defineEmits(["pageChange", "sortChange", "selectionChange"]);
 
   // Состояние для выбранных элементов
@@ -54,7 +67,7 @@
       selectedReports.value.clear();
     } else {
       // Выбираем только черновики
-      props.reports.forEach((report) => {
+      localReports.value.forEach((report) => {
         if (report.status === "Draft" && report.can_edit) {
           selectedReports.value.add(report.id);
         }
@@ -75,7 +88,7 @@
     }
 
     // Обновляем состояние массового выбора
-    const draftReports = props.reports.filter(
+    const draftReports = localReports.value.filter(
       (r) => r.status === "Draft" && r.can_edit,
     );
     isAllSelected.value =
@@ -91,7 +104,7 @@
   };
 
   const sortedReports = computed(() => {
-    return [...props.reports].sort((a, b) => {
+    return [...localReports.value].sort((a, b) => {
       const endA = new Date(a.period.split(" - ")[1] ?? a.period).getTime();
       const endB = new Date(b.period.split(" - ")[1] ?? b.period).getTime();
 
@@ -241,6 +254,7 @@
                     onClick: (e: Event) => {
                       e.stopPropagation();
                       console.log("Удалить отчёт", report.id);
+                      deleteReport(report.id);
                     },
                   },
                   [
@@ -380,6 +394,35 @@
       [$style.disabled]: page === "...",
     }));
   });
+
+  const deleteReport = async (reportId: number) => {
+    try {
+      const token = authStore.token;
+      if (!token) throw new Error("Пользователь не авторизован");
+
+      const responce = await $fetch<{ success: boolean; message: string }>(
+        `/tenants/reports/${reportId}`,
+        {
+          baseURL: config.public.apiBase,
+          method: "DELETE",
+          headers: {
+            Accept: "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+
+      if (!responce.success) throw new Error(responce.message || "Ошибка");
+
+      localReports.value = localReports.value.filter((r) => r.id !== reportId);
+
+      selectedReports.value.delete(reportId);
+      emitSelectionChange();
+    } catch (err: unknown) {
+      console.error(err);
+      alert("Не удалось удалить отчет: " + (err as Error).message);
+    }
+  };
 </script>
 
 <template>
@@ -452,7 +495,10 @@
                       isAllSelected ? "Отменить выбор" : "Выбрать все черновики"
                     }}
                   </button>
-                  <button v-if="isAllSelected" :class="$style.deleteAllButton">
+                  <button
+                    v-if="selectedReports.size > 1"
+                    :class="$style.deleteAllButton"
+                  >
                     Удалить все выбранные
                   </button>
                 </div>
