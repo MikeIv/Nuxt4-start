@@ -42,10 +42,8 @@
       const response = await authStore.logIn(event.data);
 
       if (response?.success) {
-        // Получаем данные пользователя и они автоматически сохраняются в сторе
         await fetchUser();
 
-        // Теперь данные доступны из стора
         console.log("User data from store AUTHFORM:", userStore.user);
 
         await navigateTo("/", { replace: true });
@@ -112,14 +110,22 @@
         </div>
       </UFormField>
 
-      <UButton
+      <button
         class="auth-form__btn-submit"
+        :class="{ 'auth-form__btn-submit--loading': isLoading }"
         type="submit"
-        :loading="isLoading"
         :disabled="isLoading"
       >
-        Войти
-      </UButton>
+        <span class="auth-form__btn-content">
+          <span v-if="isLoading" class="auth-form__spinner-wrapper">
+            <span
+              class="auth-form__spinner"
+              :class="{ 'auth-form__spinner--active': isLoading }"
+            />
+          </span>
+          <span class="auth-form__btn-text">Войти</span>
+        </span>
+      </button>
     </UForm>
 
     <div class="mt-4 text-left text-lk-black auth-form__title">
@@ -168,18 +174,81 @@
     }
 
     &__btn-submit {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       margin-bottom: rem(54);
-      padding: rem(4) rem(16);
+      padding: rem(4) rem(24);
       font-size: rem(18);
       font-weight: bold;
       color: var(--a-black);
       border-radius: rem(4);
       background-color: var(--a-bgAccentExLight);
+      border: none;
       cursor: pointer;
+      transition: all 0.3s ease;
+      overflow: hidden;
 
-      &:hover {
+      &:hover:not(:disabled) {
         background-color: var(--a-bgAccent);
+        transform: translateY(-1px);
       }
+
+      &:disabled {
+        cursor: not-allowed;
+        opacity: 0.7;
+      }
+    }
+
+    &__btn-content {
+      display: flex;
+      align-items: center;
+      gap: rem(12);
+      position: relative;
+      z-index: 2;
+    }
+
+    &__spinner-wrapper {
+      width: rem(20);
+      height: rem(20);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    &__spinner {
+      width: rem(16);
+      height: rem(16);
+      border: rem(2) solid transparent;
+      border-top: rem(2) solid var(--a-black);
+      border-radius: 50%;
+      opacity: 0;
+      transform: scale(0.5);
+      transition: all 0.3s ease;
+
+      &--active {
+        opacity: 1;
+        transform: scale(1);
+        animation: spin 1s linear infinite;
+
+        @keyframes spin {
+          0% {
+            transform: rotate(0deg) scale(1);
+          }
+          100% {
+            transform: rotate(360deg) scale(1);
+          }
+        }
+      }
+    }
+
+    &__btn-text {
+      transition: opacity 0.3s ease;
+    }
+
+    &__btn-submit--loading &__btn-text {
+      opacity: 0.8;
     }
   }
 </style>
