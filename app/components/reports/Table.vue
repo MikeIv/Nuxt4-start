@@ -89,6 +89,15 @@
     emit("selectionChange", Array.from(selectedReports.value));
   };
 
+  const sortedReports = computed(() => {
+    return [...props.reports].sort((a, b) => {
+      const endA = new Date(a.period.split(" - ")[1]).getTime();
+      const endB = new Date(b.period.split(" - ")[1]).getTime();
+
+      return endB - endA;
+    });
+  });
+
   const columns = computed(() => {
     const selectColumn = {
       id: "select",
@@ -106,17 +115,6 @@
           title: "Выбрать черновик",
         });
       },
-      footer: () =>
-        h(
-          "button",
-          {
-            class: $style.selectAllButton,
-            onClick: toggleAllSelection,
-          },
-          isAllSelected.value
-            ? "Снять выбор со всех черновиков"
-            : "Выбрать все черновики",
-        ),
     };
 
     const otherColumns = props.headers.map((header) => {
@@ -272,7 +270,7 @@
 
   const table = useVueTable({
     get data() {
-      return props.reports;
+      return sortedReports.value;
     },
     get columns() {
       return columns.value;
@@ -561,7 +559,6 @@
     font-weight: 600;
   }
 
-  .headerCheckbox,
   .rowCheckbox {
     width: rem(16);
     height: rem(16);
@@ -569,10 +566,6 @@
     background-color: var(--a-bgAccentDark);
     color: var(--a-errorText);
 
-    &:focus {
-      outline: 2px solid var(--a-borderAccent);
-      outline-offset: 2px;
-    }
     &:checked {
       background-color: var(--a-bgAccentDark);
       color: var(--a-errorText);
@@ -602,7 +595,6 @@
 
       &:hover {
         background-color: var(--a-bgTableLight);
-        cursor: pointer;
       }
     }
 
