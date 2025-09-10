@@ -91,8 +91,8 @@
 
   const sortedReports = computed(() => {
     return [...props.reports].sort((a, b) => {
-      const endA = new Date(a.period.split(" - ")[1]).getTime();
-      const endB = new Date(b.period.split(" - ")[1]).getTime();
+      const endA = new Date(a.period.split(" - ")[1] ?? a.period).getTime();
+      const endB = new Date(b.period.split(" - ")[1] ?? b.period).getTime();
 
       return endB - endA;
     });
@@ -103,7 +103,7 @@
       id: "select",
       size: 60,
       header: () => h("div", { class: $style.headerLabel }, ""), // заголовок пустой
-      cell: ({ row }) => {
+      cell: ({ row }: { row: { original: Report; index: number } }) => {
         const report = row.original;
         if (report.status !== "Draft" || !report.can_edit) return null;
 
@@ -136,7 +136,7 @@
           return {
             ...baseColumn,
             size: 60,
-            cell: ({ row }) => {
+            cell: ({ row }: { row: { original: Report; index: number } }) => {
               if (!props.pagination) return row.index + 1;
 
               const { currentPage, perPage } = props.pagination;
@@ -148,8 +148,11 @@
           return {
             ...baseColumn,
             size: 200,
-            cell: ({ row }) => {
-              const [start, end] = row.original.period.split(" - ");
+            cell: ({ row }: { row: { original: Report; index: number } }) => {
+              const [startRow, endRow] = row.original.period.split(" - ");
+              const start = startRow ?? row.original.period;
+              const end = endRow ?? row.original.period;
+
               const startDate = new Date(start).toLocaleDateString();
               const endDate = new Date(end).toLocaleDateString();
               return `${startDate} - ${endDate}`;
@@ -159,7 +162,7 @@
           return {
             ...baseColumn,
             size: 180,
-            cell: ({ row }) => {
+            cell: ({ row }: { row: { original: Report; index: number } }) => {
               const statusMap: Record<string, string> = {
                 CorrectionRequested: "Запрошено исправление",
                 Submitted: "Сформирован",
@@ -172,7 +175,11 @@
         case "turnover_fee":
           return {
             ...baseColumn,
-            cell: ({ row }) => row.original[header.key].toLocaleString() + " ₽",
+            cell: ({ row }: { row: { original: Report; index: number } }) => {
+              const key = header.key as keyof Report;
+              const value = row.original[key] as number;
+              return value.toLocaleString() + " ₽";
+            },
           };
         case "can_edit":
           return {
@@ -182,7 +189,7 @@
               h("div", { class: $style.headerWithCheckbox }, [
                 h("span", { class: $style.headerLabel }, header.label),
               ]),
-            cell: ({ row }) => {
+            cell: ({ row }: { row: { original: Report; index: number } }) => {
               const report = row.original;
 
               // Если это не черновик или нельзя редактировать, показываем только кнопку редактирования
@@ -221,7 +228,7 @@
         case "can_download_documents":
           return {
             ...baseColumn,
-            cell: ({ row }) => {
+            cell: ({ row }: { row: { original: Report; index: number } }) => {
               if (!row.original.can_download_documents) return null;
               return h(
                 "button",
@@ -241,7 +248,7 @@
           return {
             ...baseColumn,
             size: 150,
-            cell: ({ row }) => {
+            cell: ({ row }: { row: { original: Report; index: number } }) => {
               if (!row.original.can_request_correction) return null;
 
               return h(
@@ -330,9 +337,10 @@
 
   const handlePageChange = (page: number) => {
     if (
+      props.pagination &&
       page >= 1 &&
-      page <= props.pagination?.lastPage &&
-      page !== props.pagination?.currentPage
+      page <= props.pagination.lastPage &&
+      page !== props.pagination.currentPage
     ) {
       emit("pageChange", page);
     }
