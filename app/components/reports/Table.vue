@@ -90,7 +90,36 @@
   };
 
   const columns = computed(() => {
-    return props.headers.map((header) => {
+    const selectColumn = {
+      id: "select",
+      size: 60,
+      header: () => h("div", { class: $style.headerLabel }, ""), // заголовок пустой
+      cell: ({ row }) => {
+        const report = row.original;
+        if (report.status !== "Draft" || !report.can_edit) return null;
+
+        return h("input", {
+          type: "checkbox",
+          checked: selectedReports.value.has(report.id),
+          onChange: () => toggleReportSelection(report.id, report.status),
+          class: $style.rowCheckbox,
+          title: "Выбрать черновик",
+        });
+      },
+      footer: () =>
+        h(
+          "button",
+          {
+            class: $style.selectAllButton,
+            onClick: toggleAllSelection,
+          },
+          isAllSelected.value
+            ? "Снять выбор со всех черновиков"
+            : "Выбрать все черновики",
+        ),
+    };
+
+    const otherColumns = props.headers.map((header) => {
       const baseColumn = {
         accessorKey: header.key,
         header: header.label,
@@ -154,13 +183,6 @@
             header: () =>
               h("div", { class: $style.headerWithCheckbox }, [
                 h("span", { class: $style.headerLabel }, header.label),
-                h("input", {
-                  type: "checkbox",
-                  checked: isAllSelected.value,
-                  onChange: toggleAllSelection,
-                  class: $style.headerCheckbox,
-                  title: "Выбрать все черновики",
-                }),
               ]),
             cell: ({ row }) => {
               const report = row.original;
@@ -195,14 +217,6 @@
                   },
                   [h(IconEdit, { class: $style.editIcon })],
                 ),
-                h("input", {
-                  type: "checkbox",
-                  checked: selectedReports.value.has(report.id),
-                  onChange: () =>
-                    toggleReportSelection(report.id, report.status),
-                  class: $style.rowCheckbox,
-                  title: "Выбрать черновик",
-                }),
               ]);
             },
           };
@@ -250,6 +264,8 @@
           return baseColumn;
       }
     });
+
+    return [selectColumn, ...otherColumns];
   });
 
   const sorting = ref<SortingState>([]);
@@ -391,6 +407,25 @@
               </td>
             </tr>
           </tbody>
+          <tfoot>
+            <tr>
+              <td :colspan="3">
+                <div :class="$style.footerBtnWrapper">
+                  <button
+                    :class="$style.selectAllButton"
+                    @click="toggleAllSelection"
+                  >
+                    {{
+                      isAllSelected ? "Отменить выбор" : "Выбрать все черновики"
+                    }}
+                  </button>
+                  <button v-if="isAllSelected" :class="$style.deleteAllButton">
+                    Удалить все выбранные
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tfoot>
         </table>
       </div>
     </template>
@@ -675,6 +710,33 @@
     &.disabled {
       opacity: 0.5;
       cursor: not-allowed;
+    }
+  }
+
+  .footerBtnWrapper {
+    display: inline-flex;
+    margin-top: rem(10);
+    gap: rem(10);
+  }
+
+  .selectAllButton,
+  .deleteAllButton {
+    width: rem(120);
+    height: rem(36);
+    padding: rem(4) rem(8);
+    font-size: rem(12);
+    font-weight: 600;
+    color: var(--a-mainText);
+    line-height: 1;
+    border: 1px solid var(--a-borderAccent);
+    background: var(--a-bgAccentExLight);
+    border-radius: rem(4);
+    cursor: pointer;
+    transition: all 0.2s;
+
+    &:hover {
+      color: var(--a-white);
+      background-color: var(--a-bgAccentDark);
     }
   }
 
