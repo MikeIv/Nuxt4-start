@@ -61,6 +61,94 @@
 
   const localReports = ref<Report[]>([...props.reports]);
 
+  const currentPageRef = ref<number>(props.pagination?.currentPage ?? 1);
+
+  watch(
+    () => props.pagination?.currentPage,
+    (newPage) => {
+      const pageNumber = Number(newPage) || 1; // приводим к числу
+      if (pageNumber !== currentPageRef.value) {
+        currentPageRef.value = pageNumber;
+      }
+    },
+    { immediate: true },
+  );
+
+  // Обработка клика по странице
+  const handlePageChange = (page: number | string) => {
+    if (!props.pagination || page === "...") return;
+
+    const newPage = Math.max(
+      1,
+      Math.min(Number(page) || 1, props.pagination.lastPage),
+    );
+
+    if (newPage !== currentPageRef.value) {
+      currentPageRef.value = newPage;
+      emit("pageChange", newPage);
+    }
+  };
+
+  const visiblePages = computed<(number | string)[]>(() => {
+    if (!props.pagination) return [];
+    const total = props.pagination.lastPage;
+    const current = currentPageRef.value;
+    const delta = 2; // сколько страниц показывает вокруг текущей
+    const range: (number | string)[] = [];
+
+    for (let i = 1; i <= total; i++) {
+      if (
+        i === 1 ||
+        i === total ||
+        (i >= current - delta && i <= current + delta)
+      ) {
+        range.push(i);
+      } else if (range[range.length - 1] !== "...") {
+        range.push("...");
+      }
+    }
+
+    return range;
+  });
+
+  // Моковые данные для теста пагинации
+  // const currentPageRef = ref(1);
+
+  // const pagination = ref({
+  //   currentPage: 1,
+  //   lastPage: 50,
+  // });
+
+  // // Вычисляем видимые номера страниц с многоточиями
+  // const visiblePages = computed<(number | string)[]>(() => {
+  //   const total = pagination.value.lastPage;
+  //   const current = currentPageRef.value;
+  //   const delta = 2; // сколько страниц показываем вокруг текущей
+  //   const range: (number | string)[] = [];
+
+  //   for (let i = 1; i <= total; i++) {
+  //     if (i === 1 || i === total || (i >= current - delta && i <= current + delta)) {
+  //       range.push(i);
+  //     } else if (range[range.length - 1] !== "...") {
+  //       range.push("...");
+  //     }
+  //   }
+
+  //   return range;
+  // });
+
+  // // Обработчик смены страницы
+  // const handlePageChange = (page: number | string) => {
+  //   if (page === "...") return;
+
+  //   const newPage = Math.max(1, Math.min(Number(page) || 1, pagination.value.lastPage));
+
+  //   if (newPage !== currentPageRef.value) {
+  //     currentPageRef.value = newPage;
+  //     pagination.value.currentPage = newPage;
+  //   }
+  // };
+
   watch(
     () => props.reports,
     (newReports) => {
@@ -354,64 +442,6 @@
     getSortedRowModel: getSortedRowModel(),
   });
 
-  watch(
-    () => props.pagination?.currentPage,
-    (newVal, oldVal) => {
-      if (newVal !== oldVal) {
-        sorting.value = [...sorting.value];
-      }
-    },
-  );
-
-  const pageNumbers = computed(() => {
-    if (!props.pagination) return [];
-    const { currentPage, lastPage } = props.pagination;
-    const range: (number | string)[] = [];
-
-    range.push(1);
-
-    if (currentPage > 3) {
-      range.push("left...");
-    }
-
-    for (
-      let i = Math.max(2, currentPage - 1);
-      i <= Math.min(lastPage - 1, currentPage + 1);
-      i++
-    ) {
-      range.push(i);
-    }
-
-    if (currentPage < lastPage - 2) {
-      range.push("right...");
-    }
-
-    if (lastPage > 1) {
-      range.push(lastPage);
-    }
-
-    return range;
-  });
-
-  const handlePageChange = (page: number) => {
-    if (
-      props.pagination &&
-      page >= 1 &&
-      page <= props.pagination.lastPage &&
-      page !== props.pagination.currentPage
-    ) {
-      emit("pageChange", page);
-    }
-  };
-
-  const buttonClasses = computed(() => {
-    return pageNumbers.value.map((page) => ({
-      [$style.pageButton]: true,
-      [$style.active]: page === (props.pagination?.currentPage || 1),
-      [$style.disabled]: page === "...",
-    }));
-  });
-
   const hasDrafts = computed(() =>
     localReports.value.some((r) => r.status === "Draft" && r.can_edit),
   );
@@ -587,7 +617,7 @@
           </tbody>
           <tfoot>
             <tr>
-              <td :colspan="3">
+              <td :colspan="4">
                 <div :class="$style.footerBtnWrapper">
                   <button
                     v-if="hasDrafts"
@@ -618,31 +648,41 @@
     <footer :class="$style.footer">
       <div v-if="pagination" :class="$style.pagination">
         <button
-          :class="{
-            [$style.pageButton]: true,
-            [$style.disabled]: pagination.currentPage === 1,
-          }"
-          @click="handlePageChange(pagination.currentPage - 1)"
+          :class="[
+            $style.pageButton,
+            { [$style.disabled]: currentPageRef <= 1 },
+          ]"
+          :disabled="currentPageRef <= 1"
+          @click="handlePageChange(currentPageRef - 1)"
         >
           Назад
         </button>
+
         <div :class="$style.pageNumbers">
           <button
-            v-for="(page, index) in pageNumbers"
-            :key="`page-${index}-${page}`"
-            :class="buttonClasses[index]"
-            @click="typeof page === 'number' && handlePageChange(page)"
+            v-for="page in visiblePages"
+            :key="page"
+            :class="[
+              $style.pageButton,
+              {
+                [$style.active]:
+                  page !== '...' && Number(page) === currentPageRef,
+                [$style.disabled]: page === '...',
+              },
+            ]"
+            @click="handlePageChange(page)"
           >
-            {{ page === "..." ? "..." : page }}
+            {{ page }}
           </button>
         </div>
 
         <button
-          :class="{
-            [$style.pageButton]: true,
-            [$style.disabled]: pagination.currentPage === pagination.lastPage,
-          }"
-          @click="handlePageChange(pagination.currentPage + 1)"
+          :class="[
+            $style.pageButton,
+            { [$style.disabled]: currentPageRef >= pagination.lastPage },
+          ]"
+          :disabled="currentPageRef >= pagination.lastPage"
+          @click="handlePageChange(currentPageRef + 1)"
         >
           Вперед
         </button>
@@ -907,8 +947,8 @@
 
   .selectAllButton,
   .deleteAllButton {
-    width: rem(120);
-    height: rem(36);
+    width: rem(180);
+    height: rem(25);
     padding: rem(4) rem(8);
     font-size: rem(12);
     font-weight: 600;
