@@ -15,6 +15,10 @@
 
   const $style = useCssModule();
 
+  const isDeleting = ref(false);
+  const deletingReports = ref<Set<number>>(new Set());
+  const deletedRows = ref<Set<number>>(new Set());
+
   interface TableHeader {
     key: string;
     label: string;
@@ -41,6 +45,14 @@
       total: number;
     };
   }
+
+  type ApiResponsePayload<T = unknown> = T;
+
+  type ApiResponse<T = unknown> = {
+    success: boolean;
+    message?: string;
+    payload?: ApiResponsePayload<T>;
+  };
 
   const authStore = useAuthStore();
   const config = useRuntimeConfig();
@@ -124,6 +136,7 @@
         return h("input", {
           type: "checkbox",
           checked: selectedReports.value.has(report.id),
+          disabled: isDeleting.value || deletingReports.value.has(report.id),
           onChange: () => toggleReportSelection(report.id, report.status),
           class: $style.rowCheckbox,
           title: "Выбрать черновик",
@@ -230,6 +243,7 @@
                   {
                     class: $style.editButton,
                     disabled:
+                      deletingReports.value.has(report.id) ||
                       selectedReports.value.size > 1 ||
                       (selectedReports.value.size === 1 &&
                         !selectedReports.value.has(report.id)),
@@ -248,6 +262,7 @@
                   {
                     class: $style.deleteButton,
                     disabled:
+                      isDeleting.value ||
                       selectedReports.value.size > 1 ||
                       (selectedReports.value.size === 1 &&
                         !selectedReports.value.has(report.id)),
@@ -259,7 +274,9 @@
                   },
                   [
                     h(IconDelete, { class: $style.editIcon }),
-                    h("span", { class: $style.editText }, "Удалить"),
+                    deletingReports.value.has(report.id)
+                      ? h("span", { class: $style.spinner })
+                      : h("span", { class: $style.editText }, "Удалить"),
                   ],
                 ),
               ]);
@@ -395,7 +412,12 @@
     }));
   });
 
+  const hasDrafts = computed(() =>
+    localReports.value.some((r) => r.status === "Draft" && r.can_edit),
+  );
+
   const deleteReport = async (reportId: number) => {
+    deletingReports.value.add(reportId);
     try {
       const token = authStore.token;
       if (!token) throw new Error("Пользователь не авторизован");
@@ -414,13 +436,83 @@
 
       if (!responce.success) throw new Error(responce.message || "Ошибка");
 
-      localReports.value = localReports.value.filter((r) => r.id !== reportId);
-
       selectedReports.value.delete(reportId);
       emitSelectionChange();
+      // Скрываем спиннер и показываем сообщение об удалении
+      deletingReports.value.delete(reportId);
+      deletedRows.value.add(reportId);
+
+      // Ждем 3 секунды, чтобы показать сообщение, затем удаляем строку
+      setTimeout(() => {
+        localReports.value = localReports.value.filter(
+          (r) => r.id !== reportId,
+        );
+        deletedRows.value.delete(reportId);
+      }, 3000);
     } catch (err: unknown) {
       console.error(err);
+      deletingReports.value.delete(reportId);
       alert("Не удалось удалить отчет: " + (err as Error).message);
+    }
+  };
+
+  const deleteAllSelectedReports = async () => {
+    isDeleting.value = true;
+    try {
+      const token = authStore.token;
+      if (!token) throw new Error("Пользователь не авторизован");
+
+      const idOfReports = Array.from(selectedReports.value);
+      if (idOfReports.length === 0) return;
+      // Отправляем запросы параллельно
+      const result = await Promise.allSettled(
+        idOfReports.map((id) =>
+          $fetch<ApiResponse>(`/tenants/reports/${id}`, {
+            baseURL: config.public.apiBase,
+            method: "DELETE",
+            headers: {
+              Accept: "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+          }),
+        ),
+      );
+      // Фильтруем успешные
+      const deletedIdOfReports = idOfReports.filter(
+        (_, idx) =>
+          result[idx]?.status === "fulfilled" &&
+          (result[idx] as PromiseFulfilledResult<ApiResponse>).value.success,
+      );
+
+      if (deletedIdOfReports.length > 0) {
+        // Удаляем их из локального состояния
+        localReports.value = localReports.value.filter(
+          (r) => !deletedIdOfReports.includes(r.id),
+        );
+
+        // Если удалили все выбранные - очищаем полностью
+        if (deletedIdOfReports.length === idOfReports.length) {
+          selectedReports.value.clear();
+        } else {
+          // иначе удаляем только те, что реально удалились
+          deletedIdOfReports.forEach((id) => selectedReports.value.delete(id));
+        }
+
+        emitSelectionChange();
+      }
+
+      // Проверка на ошибки
+      const failedDeleteReports = result.filter((r) => r.status === "rejected");
+      if (failedDeleteReports.length > 0) {
+        alert(
+          `Не удалось удалить отчёты: ${failedDeleteReports.length} шт. Попробуйте снова.`,
+        );
+      }
+    } catch (err: unknown) {
+      console.error(err);
+      alert("Ошибка при удалении отчётов: " + (err as Error).message);
+    } finally {
+      isDeleting.value = false;
     }
   };
 </script>
@@ -475,12 +567,22 @@
           </thead>
           <tbody :class="$style.tableBody">
             <tr v-for="row in table.getRowModel().rows" :key="row.id">
-              <td v-for="cell in row.getVisibleCells()" :key="cell.id">
-                <FlexRender
-                  :render="cell.column.columnDef.cell"
-                  :props="cell.getContext()"
-                />
-              </td>
+              <template v-if="deletedRows.has(row.original.id)">
+                <td
+                  :colspan="table.getAllColumns().length"
+                  :class="$style.deletedRow"
+                >
+                  Черновик удален
+                </td>
+              </template>
+              <template v-else>
+                <td v-for="cell in row.getVisibleCells()" :key="cell.id">
+                  <FlexRender
+                    :render="cell.column.columnDef.cell"
+                    :props="cell.getContext()"
+                  />
+                </td>
+              </template>
             </tr>
           </tbody>
           <tfoot>
@@ -488,7 +590,9 @@
               <td :colspan="3">
                 <div :class="$style.footerBtnWrapper">
                   <button
+                    v-if="hasDrafts"
                     :class="$style.selectAllButton"
+                    :disabled="isDeleting"
                     @click="toggleAllSelection"
                   >
                     {{
@@ -498,8 +602,10 @@
                   <button
                     v-if="selectedReports.size > 1"
                     :class="$style.deleteAllButton"
+                    :disabled="isDeleting"
+                    @click="deleteAllSelectedReports"
                   >
-                    Удалить все выбранные
+                    {{ isDeleting ? "Удаление..." : "Удалить все выбранные" }}
                   </button>
                 </div>
               </td>
@@ -817,6 +923,11 @@
       color: var(--a-white);
       background-color: var(--a-bgAccentDark);
     }
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
   }
 
   .download-btn {
@@ -831,5 +942,31 @@
     &:hover {
       background: var(--a-bgAccent);
     }
+  }
+
+  .spinner {
+    border: 2px solid var(--a-bgAccentExLight);
+    border-top: 2px solid var(--a-bgAccentDark);
+    border-radius: 50%;
+    width: 14px;
+    height: 14px;
+    animation: spin 0.8s linear infinite;
+    display: inline-block;
+  }
+
+  @keyframes spin {
+    0% {
+      transform: rotate(0deg);
+    }
+    100% {
+      transform: rotate(360deg);
+    }
+  }
+
+  .deletedRow {
+    text-align: center;
+    font-weight: 600;
+    color: var(--code-ident);
+    background-color: var(--a-bgLight);
   }
 </style>
