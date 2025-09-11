@@ -290,6 +290,7 @@
         case "turnover_fee":
           return {
             ...baseColumn,
+            size: 190,
             cell: ({ row }: { row: { original: Report; index: number } }) => {
               const key = header.key as keyof Report;
               const value = row.original[key] as number;
@@ -758,7 +759,7 @@
     th {
       position: sticky;
       top: 0;
-      padding: rem(12) rem(14);
+      padding: rem(10) rem(14);
       text-align: center;
       font-size: rem(12);
       font-weight: 600;
