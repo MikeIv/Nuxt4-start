@@ -9,11 +9,12 @@
   } = useApi<ReportApiResponse>();
 
   onMounted(async () => {
-    await loadReports("/tenants/reports");
+    await loadReports("/tenants/reports?perPage=10");
+    console.log(apiResponse);
   });
 
   const loadPage = (page: number) => {
-    loadReports(`/tenants/reports?page=${page}`);
+    loadReports(`/tenants/reports?page=${page}&perPage=10`);
   };
 </script>
 

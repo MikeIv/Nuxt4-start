@@ -661,7 +661,7 @@
   .tableContainer {
     display: flex;
     flex-direction: column;
-    height: rem(600);
+    height: rem(700);
     overflow: hidden;
   }
 
@@ -694,6 +694,13 @@
     scrollbar-width: thin;
     scrollbar-color: var(--a-borderAccent) var(--a-bgLight);
     -ms-overflow-style: -ms-autohiding-scrollbar;
+  }
+
+  .footer {
+    display: flex;
+    flex: 0;
+    justify-content: space-between;
+    align-items: center;
   }
 
   .reportsTable {
@@ -829,12 +836,6 @@
 
   .editText {
     line-height: 1;
-  }
-
-  .footer {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
   }
 
   .pagination {
