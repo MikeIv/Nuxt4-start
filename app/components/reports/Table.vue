@@ -663,7 +663,7 @@
     flex: 1;
     overflow: auto;
     position: relative;
-    border-radius: rem(20);
+    border-radius: rem(15);
 
     &::-webkit-scrollbar {
       width: rem(8);
@@ -787,6 +787,15 @@
       &:hover {
         background-color: var(--a-bgTableLight);
       }
+
+      &:last-child {
+        td:first-child {
+          border-bottom-left-radius: rem(15);
+        }
+        td:last-child {
+          border-bottom-right-radius: rem(15);
+        }
+      }
     }
 
     td {
@@ -879,7 +888,7 @@
     line-height: 1.2;
     border: 1px solid var(--a-borderAccent);
     background: var(--a-bgAccentExLight);
-    border-radius: 4px;
+    border-radius: rem(4);
     cursor: pointer;
     transition: all 0.2s;
 
@@ -936,8 +945,8 @@
     background: var(--a-bgAccentExLight);
     color: white;
     border: none;
-    padding: 6px 12px;
-    border-radius: 4px;
+    padding: rem(6) rem(12);
+    border-radius: rem(4);
     cursor: pointer;
     transition: background 0.2s;
 
