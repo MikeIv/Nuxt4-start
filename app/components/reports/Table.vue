@@ -64,6 +64,14 @@
 
   const currentPageRef = ref<number>(props.pagination?.currentPage ?? 1);
 
+  const statusColors: Record<string, string> = {
+    CorrectionRequested: "#F18D1E",
+    Submitted: "#86C03F",
+    Draft: "#000",
+    Overdue: "#FF0000",
+    Editable: "#F18D1E",
+  };
+
   watch(
     () => props.pagination?.currentPage,
     (newPage) => {
@@ -250,8 +258,21 @@
                 CorrectionRequested: "Запрошено исправление",
                 Submitted: "Сформирован",
                 Draft: "Черновик",
+                Overdue: "Просрочен",
+                Editable: "Доступен к исправлению",
               };
-              return statusMap[row.original.status] || row.original.status;
+
+              const statusText =
+                statusMap[row.original.status] || row.original.status;
+              const color = statusColors[row.original.status];
+
+              return h("div", { class: $style.statusWrapper }, [
+                h("span", { class: $style.statusText }, statusText),
+                h("div", {
+                  class: $style.statusLine,
+                  style: { backgroundColor: color },
+                }),
+              ]);
             },
           };
         case "turnover_amount":
@@ -276,67 +297,74 @@
             cell: ({ row }: { row: { original: Report; index: number } }) => {
               const report = row.original;
 
-              // Если это не черновик или нельзя редактировать, показываем только кнопку редактирования
-              if (report.status !== "Draft" || !report.can_edit) {
-                if (!report.can_edit) return null;
-
-                // return h(
-                //   "button",
-                //   {
-                //     class: $style.editButton,
-                //     onClick: (e) => {
-                //       e.stopPropagation();
-                //       navigateTo(`/reports/edit/${report.id}`);
-                //     },
-                //   },
-                //   [h(IconEdit, { class: $style.editIcon })],
-                // );
+              // Для черновиков показываем редактирование и кнопку удалить
+              if (report.status === "Draft" && report.can_edit) {
+                return h("div", { class: $style.editCell }, [
+                  h(
+                    "button",
+                    {
+                      class: $style.editButton,
+                      disabled:
+                        deletingReports.value.has(report.id) ||
+                        selectedReports.value.size > 1 ||
+                        (selectedReports.value.size === 1 &&
+                          !selectedReports.value.has(report.id)),
+                      onClick: (e) => {
+                        e.stopPropagation();
+                        navigateTo(`/reports/edit/${report.id}`);
+                      },
+                    },
+                    [
+                      h(IconEdit, { class: $style.editIcon }),
+                      h("span", { class: $style.editText }, "Редактировать"),
+                    ],
+                  ),
+                  h(
+                    "button",
+                    {
+                      class: $style.deleteButton,
+                      disabled:
+                        isDeleting.value ||
+                        selectedReports.value.size > 1 ||
+                        (selectedReports.value.size === 1 &&
+                          !selectedReports.value.has(report.id)),
+                      onClick: (e: Event) => {
+                        e.stopPropagation();
+                        deleteReport(report.id);
+                      },
+                    },
+                    [
+                      h(IconDelete, { class: $style.editIcon }),
+                      deletingReports.value.has(report.id)
+                        ? h("span", { class: $style.spinner })
+                        : h("span", { class: $style.editText }, "Удалить"),
+                    ],
+                  ),
+                ]);
               }
 
-              // Для черновиков показываем кнопку редактирования и кнопку удалить
-              return h("div", { class: $style.editCell }, [
-                h(
-                  "button",
-                  {
-                    class: $style.editButton,
-                    disabled:
-                      deletingReports.value.has(report.id) ||
-                      selectedReports.value.size > 1 ||
-                      (selectedReports.value.size === 1 &&
-                        !selectedReports.value.has(report.id)),
-                    onClick: (e) => {
-                      e.stopPropagation();
-                      navigateTo(`/reports/edit/${report.id}`);
+              // Для статуса Editable показываем только кнопку редактирования
+              if (report.status === "Editable" && report.can_edit) {
+                return h("div", { class: $style.editCell }, [
+                  h(
+                    "button",
+                    {
+                      class: $style.editButton,
+                      onClick: (e) => {
+                        e.stopPropagation();
+                        navigateTo(`/reports/edit/${report.id}`);
+                      },
                     },
-                  },
-                  [
-                    h(IconEdit, { class: $style.editIcon }),
-                    h("span", { class: $style.editText }, "Редактировать"),
-                  ],
-                ),
-                h(
-                  "button",
-                  {
-                    class: $style.deleteButton,
-                    disabled:
-                      isDeleting.value ||
-                      selectedReports.value.size > 1 ||
-                      (selectedReports.value.size === 1 &&
-                        !selectedReports.value.has(report.id)),
-                    onClick: (e: Event) => {
-                      e.stopPropagation();
-                      console.log("Удалить отчёт", report.id);
-                      deleteReport(report.id);
-                    },
-                  },
-                  [
-                    h(IconDelete, { class: $style.editIcon }),
-                    deletingReports.value.has(report.id)
-                      ? h("span", { class: $style.spinner })
-                      : h("span", { class: $style.editText }, "Удалить"),
-                  ],
-                ),
-              ]);
+                    [
+                      h(IconEdit, { class: $style.editIcon }),
+                      h("span", { class: $style.editText }, "Редактировать"),
+                    ],
+                  ),
+                ]);
+              }
+
+              // Для других статусов показываем только кнопку редактирования, если можно редактировать
+              if (!report.can_edit) return null;
             },
           };
         case "can_download_documents":
@@ -1003,5 +1031,22 @@
     to {
       transform: rotate(360deg);
     }
+  }
+
+  .statusWrapper {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    gap: rem(2);
+  }
+
+  .statusText {
+    display: inline-block;
+  }
+
+  .statusLine {
+    width: 100%;
+    max-width: 100%;
+    height: rem(2);
   }
 </style>
