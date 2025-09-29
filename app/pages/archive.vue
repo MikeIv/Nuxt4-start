@@ -8,22 +8,38 @@
     error,
   } = useApi<ReportApiResponse>();
 
+  // флаг фонового обновления
+  const isRefreshing = ref(false);
+
   onMounted(async () => {
     await loadReports("/tenants/reports?perPage=10");
-    console.log(apiResponse);
   });
 
-  const loadPage = (page: number) => {
-    loadReports(`/tenants/reports?page=${page}&perPage=10`);
+  const loadPage = async (page: number) => {
+    isRefreshing.value = true;
+    await loadReports(`/tenants/reports?page=${page}&perPage=10`);
+    isRefreshing.value = false;
+  };
+
+  const refreshReports = async (page: number) => {
+    isRefreshing.value = true;
+    await loadReports(`/tenants/reports?page=${page}&perPage=10`);
+    isRefreshing.value = false;
   };
 </script>
 
 <template>
   <div>
-    <div v-if="isLoading">Загрузка...</div>
+    <div v-if="isLoading && !isRefreshing" :class="$style.overlay">
+      Идет загрузка
+      <span :class="$style.spinner" />
+    </div>
+
     <div v-else-if="error" class="text-red-500">{{ error }}</div>
+
     <div v-else-if="apiResponse?.data" :class="$style.wrapper">
       <CashiersHeader main-title="Архив отчетов" step-title="" />
+
       <section :class="$style.content">
         <ReportsTable
           :headers="apiResponse.data.header"
@@ -34,6 +50,8 @@
             perPage: apiResponse.per_page,
             total: apiResponse.total,
           }"
+          :loading="isRefreshing"
+          @refresh-reports="refreshReports"
           @page-change="loadPage"
         />
       </section>
@@ -47,5 +65,28 @@
     display: flex;
     flex-direction: column;
     overflow: auto;
+  }
+
+  .overlay {
+    display: flex;
+    justify-content: start;
+    align-items: center;
+    font-style: rem(25);
+  }
+
+  .spinner {
+    margin-left: rem(20);
+    width: rem(25);
+    height: rem(25);
+    border: 3px solid var(--a-borderAccent);
+    border-top-color: var(--a-bgDark);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
   }
 </style>

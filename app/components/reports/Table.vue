@@ -44,6 +44,7 @@
       perPage: number;
       total: number;
     };
+    loading?: boolean;
   }
 
   type ApiResponsePayload<T = unknown> = T;
@@ -111,51 +112,18 @@
     return range;
   });
 
-  // Моковые данные для теста пагинации
-  // const currentPageRef = ref(1);
-
-  // const pagination = ref({
-  //   currentPage: 1,
-  //   lastPage: 50,
-  // });
-
-  // // Вычисляем видимые номера страниц с многоточиями
-  // const visiblePages = computed<(number | string)[]>(() => {
-  //   const total = pagination.value.lastPage;
-  //   const current = currentPageRef.value;
-  //   const delta = 2; // сколько страниц показываем вокруг текущей
-  //   const range: (number | string)[] = [];
-
-  //   for (let i = 1; i <= total; i++) {
-  //     if (i === 1 || i === total || (i >= current - delta && i <= current + delta)) {
-  //       range.push(i);
-  //     } else if (range[range.length - 1] !== "...") {
-  //       range.push("...");
-  //     }
-  //   }
-
-  //   return range;
-  // });
-
-  // // Обработчик смены страницы
-  // const handlePageChange = (page: number | string) => {
-  //   if (page === "...") return;
-
-  //   const newPage = Math.max(1, Math.min(Number(page) || 1, pagination.value.lastPage));
-
-  //   if (newPage !== currentPageRef.value) {
-  //     currentPageRef.value = newPage;
-  //     pagination.value.currentPage = newPage;
-  //   }
-  // };
-
   watch(
     () => props.reports,
     (newReports) => {
       localReports.value = [...newReports];
     },
   );
-  const emit = defineEmits(["pageChange", "sortChange", "selectionChange"]);
+  const emit = defineEmits([
+    "pageChange",
+    "sortChange",
+    "selectionChange",
+    "refreshReports",
+  ]);
 
   // Состояние для выбранных элементов
   const selectedReports = ref<Set<number>>(new Set());
@@ -447,57 +415,21 @@
     localReports.value.some((r) => r.status === "Draft" && r.can_edit),
   );
 
-  const deleteReport = async (reportId: number) => {
-    deletingReports.value.add(reportId);
-    try {
-      const token = authStore.token;
-      if (!token) throw new Error("Пользователь не авторизован");
+  const deleteReports = async (reportIds: number[]) => {
+    if (!reportIds.length) return;
 
-      const responce = await $fetch<{ success: boolean; message: string }>(
-        `/tenants/reports/${reportId}`,
-        {
-          baseURL: config.public.apiBase,
-          method: "DELETE",
-          headers: {
-            Accept: "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        },
-      );
-
-      if (!responce.success) throw new Error(responce.message || "Ошибка");
-
-      selectedReports.value.delete(reportId);
-      emitSelectionChange();
-      // Скрываем спиннер и показываем сообщение об удалении
-      deletingReports.value.delete(reportId);
-      deletedRows.value.add(reportId);
-
-      // Ждем 3 секунды, чтобы показать сообщение, затем удаляем строку
-      setTimeout(() => {
-        localReports.value = localReports.value.filter(
-          (r) => r.id !== reportId,
-        );
-        deletedRows.value.delete(reportId);
-      }, 3000);
-    } catch (err: unknown) {
-      console.error(err);
-      deletingReports.value.delete(reportId);
-      alert("Не удалось удалить отчет: " + (err as Error).message);
-    }
-  };
-
-  const deleteAllSelectedReports = async () => {
     isDeleting.value = true;
+
     try {
       const token = authStore.token;
       if (!token) throw new Error("Пользователь не авторизован");
 
-      const idOfReports = Array.from(selectedReports.value);
-      if (idOfReports.length === 0) return;
+      // Показываем анимацию удаления
+      reportIds.forEach((id) => deletedRows.value.add(id));
+
       // Отправляем запросы параллельно
-      const result = await Promise.allSettled(
-        idOfReports.map((id) =>
+      const results = await Promise.allSettled(
+        reportIds.map((id) =>
           $fetch<ApiResponse>(`/tenants/reports/${id}`, {
             baseURL: config.public.apiBase,
             method: "DELETE",
@@ -508,43 +440,58 @@
           }),
         ),
       );
-      // Фильтруем успешные
-      const deletedIdOfReports = idOfReports.filter(
-        (_, idx) =>
-          result[idx]?.status === "fulfilled" &&
-          (result[idx] as PromiseFulfilledResult<ApiResponse>).value.success,
+
+      const deletedIds: number[] = [];
+      results.forEach((res, idx) => {
+        const id = reportIds[idx];
+        if (
+          id !== undefined &&
+          res.status === "fulfilled" &&
+          res.value.success
+        ) {
+          deletedIds.push(id);
+        }
+      });
+
+      // Обновляем локальное состояние
+      localReports.value = localReports.value.filter(
+        (report) => !deletedIds.includes(report.id),
       );
 
-      if (deletedIdOfReports.length > 0) {
-        // Удаляем их из локального состояния
-        localReports.value = localReports.value.filter(
-          (r) => !deletedIdOfReports.includes(r.id),
-        );
+      // Убираем удаленные из selectedReports
+      deletedIds.forEach((id) => selectedReports.value.delete(id));
+      emitSelectionChange();
 
-        // Если удалили все выбранные - очищаем полностью
-        if (deletedIdOfReports.length === idOfReports.length) {
-          selectedReports.value.clear();
-        } else {
-          // иначе удаляем только те, что реально удалились
-          deletedIdOfReports.forEach((id) => selectedReports.value.delete(id));
+      // Корректировка текущей страницы
+      if (props.pagination) {
+        const totalAfterDelete = props.pagination.total - deletedIds.length;
+        const perPage = props.pagination.perPage;
+        const lastPage = Math.ceil(totalAfterDelete / perPage) || 1;
+
+        if (currentPageRef.value > lastPage) {
+          currentPageRef.value = lastPage;
         }
-
-        emitSelectionChange();
       }
 
-      // Проверка на ошибки
-      const failedDeleteReports = result.filter((r) => r.status === "rejected");
-      if (failedDeleteReports.length > 0) {
-        alert(
-          `Не удалось удалить отчёты: ${failedDeleteReports.length} шт. Попробуйте снова.`,
-        );
-      }
+      // Убираем анимацию через 300 мс и обновляем текущую страницу
+      setTimeout(() => {
+        deletedIds.forEach((id) => deletedRows.value.delete(id));
+        emit("pageChange", currentPageRef.value);
+      }, 300);
     } catch (err: unknown) {
       console.error(err);
       alert("Ошибка при удалении отчётов: " + (err as Error).message);
     } finally {
       isDeleting.value = false;
     }
+  };
+
+  const deleteReport = (reportId: number) => {
+    deleteReports([reportId]);
+  };
+
+  const deleteAllSelectedReports = () => {
+    deleteReports(Array.from(selectedReports.value));
   };
 </script>
 
@@ -615,6 +562,9 @@
                 </td>
               </template>
             </tr>
+            <div v-if="loading" :class="$style.overlay">
+              <span :class="$style.spinner" />
+            </div>
           </tbody>
           <tfoot>
             <tr>
@@ -647,6 +597,7 @@
     </template>
 
     <footer :class="$style.footer">
+      <div />
       <div v-if="pagination" :class="$style.pagination">
         <button
           :class="[
@@ -710,6 +661,7 @@
     flex: 1;
     overflow: auto;
     position: relative;
+    border-radius: rem(20);
 
     &::-webkit-scrollbar {
       width: rem(8);
@@ -738,10 +690,13 @@
   }
 
   .footer {
-    display: flex;
     flex: 0;
-    justify-content: space-between;
+    display: flex;
     align-items: center;
+  }
+
+  .footer > div:first-child {
+    flex: 1;
   }
 
   .reportsTable {
@@ -884,12 +839,15 @@
     align-items: center;
     gap: 8px;
     padding: 16px 0;
-    margin-top: auto;
+    flex: 0;
+    margin: 0 auto;
   }
 
   .reportTotal {
+    flex: 1;
     display: flex;
     align-items: center;
+    justify-content: flex-end;
     padding-right: rem(40);
   }
 
@@ -1010,5 +968,29 @@
     font-weight: 600;
     color: var(--code-ident);
     background-color: var(--a-bgLight);
+  }
+
+  .overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(255, 255, 255, 0.6);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .spinner {
+    width: rem(35);
+    height: rem(35);
+    border: 3px solid var(--a-borderAccent);
+    border-top-color: var(--a-bgDark);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
   }
 </style>
