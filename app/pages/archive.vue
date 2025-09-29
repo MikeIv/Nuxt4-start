@@ -11,20 +11,28 @@
   // флаг фонового обновления
   const isRefreshing = ref(false);
 
+  const perPage = ref(12);
+
   onMounted(async () => {
-    await loadReports("/tenants/reports?perPage=10");
+    await loadReports(`/tenants/reports?perPage=${perPage.value}`);
   });
 
   const loadPage = async (page: number) => {
     isRefreshing.value = true;
-    await loadReports(`/tenants/reports?page=${page}&perPage=10`);
+    await loadReports(`/tenants/reports?page=${page}&perPage=${perPage.value}`);
     isRefreshing.value = false;
   };
 
   const refreshReports = async (page: number) => {
     isRefreshing.value = true;
-    await loadReports(`/tenants/reports?page=${page}&perPage=10`);
+    await loadReports(`/tenants/reports?page=${page}&perPage=${perPage.value}`);
     isRefreshing.value = false;
+  };
+
+  const handlePerPageChange = async (newPerPage: number | "all") => {
+    const perPageParam = newPerPage === "all" ? 10000 : newPerPage;
+    perPage.value = perPageParam;
+    await loadReports(`/tenants/reports?page=1&perPage=${perPageParam}`);
   };
 </script>
 
@@ -53,6 +61,7 @@
           :loading="isRefreshing"
           @refresh-reports="refreshReports"
           @page-change="loadPage"
+          @per-page-change="handlePerPageChange"
         />
       </section>
     </div>

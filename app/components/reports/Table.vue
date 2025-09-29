@@ -155,6 +155,7 @@
     "sortChange",
     "selectionChange",
     "refreshReports",
+    "perPageChange",
   ]);
 
   // Состояние для выбранных элементов
@@ -553,6 +554,19 @@
   const deleteAllSelectedReports = () => {
     deleteReports(Array.from(selectedReports.value));
   };
+
+  const handlePerPageChange = (event: Event) => {
+    const target = event.target as HTMLSelectElement;
+    const value = target.value === "all" ? "all" : Number(target.value);
+    emit("perPageChange", value);
+  };
+
+  const perPageValue = computed<string>(() => {
+    if (!props.pagination) return "all";
+    return props.pagination.perPage >= props.pagination.total
+      ? "all"
+      : String(props.pagination.perPage);
+  });
 </script>
 
 <template>
@@ -676,7 +690,15 @@
     </template>
 
     <footer :class="$style.footer">
-      <div />
+      <div :class="$style.perPageSelector">
+        <label>Показывать отчеты:</label>
+        <select :value="perPageValue" @change="handlePerPageChange">
+          <option value="12">12</option>
+          <option value="25">25</option>
+          <option value="50">50</option>
+          <option value="all">Все</option>
+        </select>
+      </div>
       <div v-if="pagination" :class="$style.pagination">
         <button
           :class="[
@@ -740,7 +762,6 @@
     flex: 1;
     overflow: auto;
     position: relative;
-    border-radius: rem(15);
 
     &::-webkit-scrollbar {
       width: rem(8);
@@ -804,6 +825,11 @@
 
       &:last-child {
         border-right: none;
+        border-top-right-radius: rem(20);
+      }
+
+      &:first-child {
+        border-top-left-radius: rem(20);
       }
     }
   }
@@ -896,7 +922,7 @@
     display: inline-flex;
     align-items: center;
     gap: rem(6);
-    padding: rem(4);
+    padding: rem(3);
     border-radius: rem(4);
     border: 1px solid var(--a-borderAccent);
     cursor: pointer;
@@ -1143,6 +1169,27 @@
     color: var(--a-white);
     &:hover {
       background: #d32f2f;
+    }
+  }
+
+  .perPageSelector {
+    display: flex;
+    align-items: center;
+    gap: rem(8);
+    margin-right: rem(20);
+
+    label {
+      font-size: rem(12);
+      font-weight: 600;
+      color: var(--a-mainText);
+    }
+
+    select {
+      padding: rem(4) rem(8);
+      font-size: rem(12);
+      border: 1px solid var(--a-borderAccent);
+      border-radius: rem(4);
+      cursor: pointer;
     }
   }
 </style>
