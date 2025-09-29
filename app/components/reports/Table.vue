@@ -72,6 +72,32 @@
     Editable: "#F18D1E",
   };
 
+  const showCorrectionModal = ref(false);
+  const reportToCorrect = ref<number | null>(null);
+  const correctionText = ref("");
+
+  const openCorrectionModal = (reportId: number) => {
+    reportToCorrect.value = reportId;
+    correctionText.value = "";
+    showCorrectionModal.value = true;
+  };
+
+  const closeCorrectionModal = () => {
+    reportToCorrect.value = null;
+    correctionText.value = "";
+    showCorrectionModal.value = false;
+  };
+
+  const submitCorrection = () => {
+    console.log(
+      "Запрос исправления:",
+      reportToCorrect.value,
+      correctionText.value,
+    );
+    // пока не отправляем на бэк
+    closeCorrectionModal();
+  };
+
   const showDeleteModal = ref(false);
   const reportToDelete = ref<number | null>(null);
 
@@ -430,10 +456,10 @@
               return h(
                 "button",
                 {
-                  class: $style.requestButton,
-                  onClick: async (e) => {
-                    console.log(e);
-                    // ... обработчик клика
+                  class: $style.editButton,
+                  onClick: (e) => {
+                    e.stopPropagation();
+                    openCorrectionModal(row.original.id);
                   },
                 },
                 "Запросить",
@@ -639,27 +665,42 @@
             <div v-if="loading" :class="$style.overlay">
               <span :class="$style.spinner" />
             </div>
-            <div v-if="showDeleteModal" :class="$style.modalOverlay">
-              <div :class="$style.modalContent">
-                <p>Вы уверены, что хотите удалить?</p>
-                <div :class="$style.modalButtons">
-                  <button
-                    :class="$style.confirmButton"
-                    @click="handleConfirmDelete"
-                  >
-                    Удалить
-                  </button>
-                  <button
-                    :class="$style.cancelButton"
-                    @click="handleCancelDelete"
-                  >
-                    Отмена
-                  </button>
-                </div>
-              </div>
-            </div>
           </tbody>
         </table>
+      </div>
+      <!-- Подтверждение удаления -->
+      <div v-if="showDeleteModal" :class="$style.modalOverlay">
+        <div :class="$style.modalContent">
+          <p>Вы уверены, что хотите удалить?</p>
+          <div :class="$style.modalButtons">
+            <button :class="$style.confirmButton" @click="handleConfirmDelete">
+              Удалить
+            </button>
+            <button :class="$style.cancelButton" @click="handleCancelDelete">
+              Отмена
+            </button>
+          </div>
+        </div>
+      </div>
+      <!-- Запрос исправления -->
+      <div v-if="showCorrectionModal" :class="$style.modalOverlay">
+        <div :class="$style.modalContent">
+          <h3>Запросить исправление</h3>
+          <input
+            v-model="correctionText"
+            type="text"
+            placeholder="Введите комментарий"
+            :class="$style.modalInput"
+          />
+          <div :class="$style.modalButtons">
+            <button :class="$style.confirmButton" @click="submitCorrection">
+              Отправить
+            </button>
+            <button :class="$style.cancelButton" @click="closeCorrectionModal">
+              Отмена
+            </button>
+          </div>
+        </div>
       </div>
       <div :class="$style.footerBtnWrapper">
         <button
@@ -1167,6 +1208,15 @@
     &:hover {
       background: #d32f2f;
     }
+  }
+
+  .modalInput {
+    width: 100%;
+    padding: rem(8);
+    font-size: rem(14);
+    margin-top: rem(10);
+    border: 1px solid var(--a-borderAccent);
+    border-radius: rem(6);
   }
 
   .perPageSelector {
