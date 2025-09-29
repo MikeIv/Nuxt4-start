@@ -473,11 +473,13 @@
         }
       }
 
-      // Убираем анимацию через 300 мс и обновляем текущую страницу
+      const DELETE_ANIMATION_DURATION = 1000;
+
+      // Убираем анимацию через и обновляем текущую страницу
       setTimeout(() => {
         deletedIds.forEach((id) => deletedRows.value.delete(id));
         emit("pageChange", currentPageRef.value);
-      }, 300);
+      }, DELETE_ANIMATION_DURATION);
     } catch (err: unknown) {
       console.error(err);
       alert("Ошибка при удалении отчётов: " + (err as Error).message);
