@@ -72,6 +72,30 @@
     Editable: "#F18D1E",
   };
 
+  const showDeleteModal = ref(false);
+  const reportToDelete = ref<number | null>(null);
+
+  // Открытие модалки
+  const confirmDeleteReport = (reportId: number) => {
+    reportToDelete.value = reportId;
+    showDeleteModal.value = true;
+  };
+
+  // Подтверждение удаления
+  const handleConfirmDelete = () => {
+    if (reportToDelete.value !== null) {
+      deleteReport(reportToDelete.value);
+      reportToDelete.value = null;
+    }
+    showDeleteModal.value = false;
+  };
+
+  // Отмена удаления
+  const handleCancelDelete = () => {
+    reportToDelete.value = null;
+    showDeleteModal.value = false;
+  };
+
   watch(
     () => props.pagination?.currentPage,
     (newPage) => {
@@ -179,12 +203,20 @@
     emit("selectionChange", Array.from(selectedReports.value));
   };
 
+  const sorting = ref<SortingState>([]);
+
   const sortedReports = computed(() => {
     return [...localReports.value].sort((a, b) => {
-      const endA = new Date(a.period.split(" - ")[1] ?? a.period).getTime();
-      const endB = new Date(b.period.split(" - ")[1] ?? b.period).getTime();
+      const aEndStr =
+        (a.period.split(" - ")[1] ?? a.period.split(" - ")[0]) || "";
+      const bEndStr =
+        (b.period.split(" - ")[1] ?? b.period.split(" - ")[0]) || "";
 
-      return endB - endA;
+      // Приводим к ISO: "2024-08-29 00:00:00" → "2024-08-29T00:00:00"
+      const dateA = new Date(aEndStr.replace(" ", "T")).getTime();
+      const dateB = new Date(bEndStr.replace(" ", "T")).getTime();
+
+      return dateB - dateA; // свежие выше
     });
   });
 
@@ -330,7 +362,7 @@
                           !selectedReports.value.has(report.id)),
                       onClick: (e: Event) => {
                         e.stopPropagation();
-                        deleteReport(report.id);
+                        confirmDeleteReport(report.id);
                       },
                     },
                     [
@@ -415,8 +447,6 @@
 
     return [selectColumn, ...otherColumns];
   });
-
-  const sorting = ref<SortingState>([]);
 
   const table = useVueTable({
     get data() {
@@ -594,6 +624,25 @@
             </tr>
             <div v-if="loading" :class="$style.overlay">
               <span :class="$style.spinner" />
+            </div>
+            <div v-if="showDeleteModal" :class="$style.modalOverlay">
+              <div :class="$style.modalContent">
+                <p>Вы уверены, что хотите удалить?</p>
+                <div :class="$style.modalButtons">
+                  <button
+                    :class="$style.confirmButton"
+                    @click="handleConfirmDelete"
+                  >
+                    Удалить
+                  </button>
+                  <button
+                    :class="$style.cancelButton"
+                    @click="handleCancelDelete"
+                  >
+                    Отмена
+                  </button>
+                </div>
+              </div>
             </div>
           </tbody>
           <tfoot>
@@ -1027,12 +1076,6 @@
     animation: spin 0.8s linear infinite;
   }
 
-  @keyframes spin {
-    to {
-      transform: rotate(360deg);
-    }
-  }
-
   .statusWrapper {
     display: inline-flex;
     flex-direction: column;
@@ -1048,5 +1091,58 @@
     width: 100%;
     max-width: 100%;
     height: rem(2);
+  }
+
+  .modalOverlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+  }
+
+  .modalContent {
+    background: var(--a-white);
+    padding: rem(20);
+    border-radius: rem(10);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-width: rem(400);
+  }
+
+  .modalButtons {
+    margin-top: rem(20);
+    display: flex;
+    gap: rem(30);
+  }
+
+  .cancelButton,
+  .confirmButton {
+    padding: rem(6) rem(12);
+    font-size: rem(14);
+    font-weight: 600;
+    border-radius: rem(6);
+    border: none;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+
+  .cancelButton {
+    background: var(--a-bgGrayLight);
+    &:hover {
+      background: var(--a-bgGray);
+    }
+  }
+
+  .confirmButton {
+    background: #f44336;
+    color: var(--a-white);
+    &:hover {
+      background: #d32f2f;
+    }
   }
 </style>
