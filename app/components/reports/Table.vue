@@ -659,33 +659,25 @@
               </div>
             </div>
           </tbody>
-          <tfoot>
-            <tr>
-              <td :colspan="4">
-                <div :class="$style.footerBtnWrapper">
-                  <button
-                    v-if="hasDrafts"
-                    :class="$style.selectAllButton"
-                    :disabled="isDeleting"
-                    @click="toggleAllSelection"
-                  >
-                    {{
-                      isAllSelected ? "Отменить выбор" : "Выбрать все черновики"
-                    }}
-                  </button>
-                  <button
-                    v-if="selectedReports.size > 1"
-                    :class="$style.deleteAllButton"
-                    :disabled="isDeleting"
-                    @click="deleteAllSelectedReports"
-                  >
-                    {{ isDeleting ? "Удаление..." : "Удалить все выбранные" }}
-                  </button>
-                </div>
-              </td>
-            </tr>
-          </tfoot>
         </table>
+      </div>
+      <div :class="$style.footerBtnWrapper">
+        <button
+          v-if="hasDrafts && selectedReports.size >= 1"
+          :class="$style.selectAllButton"
+          :disabled="isDeleting"
+          @click="toggleAllSelection"
+        >
+          {{ isAllSelected ? "Отменить выбор" : "Выбрать все черновики" }}
+        </button>
+        <button
+          v-if="selectedReports.size > 1"
+          :class="$style.deleteAllButton"
+          :disabled="isDeleting"
+          @click="deleteAllSelectedReports"
+        >
+          {{ isDeleting ? "Удаление..." : "Удалить все выбранные" }}
+        </button>
       </div>
     </template>
 
@@ -980,7 +972,7 @@
 
   .pageNumbers {
     display: flex;
-    gap: 4px;
+    gap: rem(4);
   }
 
   .pageButton {
@@ -996,14 +988,19 @@
     transition: all 0.2s;
 
     &:hover:not(.disabled) {
-      background: #f1f5f9;
-      border-color: #cbd5e1;
+      background: var(--a-bgGrayLight);
+      border-color: var(--a-bgGrayDark);
     }
 
     &.active {
       background: var(--a-bgAccentDark);
       color: var(--a-white);
       border-color: var(--a-borderAccentDark);
+      &:hover {
+        cursor: not-allowed;
+        background: var(--a-bgAccentDark);
+        border-color: var(--a-borderAccentDark);
+      }
     }
 
     &.disabled {
@@ -1031,7 +1028,7 @@
     background: var(--a-bgAccentExLight);
     border-radius: rem(4);
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all 0.3s;
 
     &:hover {
       color: var(--a-white);
