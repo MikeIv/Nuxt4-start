@@ -6,18 +6,15 @@
     getSortedRowModel,
     type SortingState,
   } from "@tanstack/vue-table";
-  import { useAuthStore } from "#imports";
+  import { useAuthStore, useDownloadReport } from "#imports";
   import IconEdit from "~/assets/icons/edit-icon.svg";
   import IconSort from "~/assets/icons/sort-alt.svg";
   import IconSortAsc from "~/assets/icons/sort-up.svg";
   import IconSortDesc from "~/assets/icons/sort-down.svg";
   import IconDelete from "~/assets/icons/delete-icon.svg";
+  import IconDownload from "~/assets/icons/icon-download.svg";
 
   const $style = useCssModule();
-
-  const isDeleting = ref(false);
-  const deletingReports = ref<Set<number>>(new Set());
-  const deletedRows = ref<Set<number>>(new Set());
 
   interface TableHeader {
     key: string;
@@ -54,6 +51,12 @@
     message?: string;
     payload?: ApiResponsePayload<T>;
   };
+
+  const { downloadReport, downloadingId } = useDownloadReport();
+
+  const isDeleting = ref(false);
+  const deletingReports = ref<Set<number>>(new Set());
+  const deletedRows = ref<Set<number>>(new Set());
 
   const authStore = useAuthStore();
   const config = useRuntimeConfig();
@@ -394,9 +397,7 @@
                     },
                     [
                       h(IconDelete, { class: $style.editIcon }),
-                      deletingReports.value.has(report.id)
-                        ? h("span", { class: $style.spinner })
-                        : h("span", { class: $style.editText }, "Удалить"),
+                      h("span", { class: $style.editText }, "Удалить"),
                     ],
                   ),
                 ]);
@@ -431,17 +432,28 @@
             ...baseColumn,
             size: 120,
             cell: ({ row }: { row: { original: Report; index: number } }) => {
-              if (!row.original.can_download_documents) return null;
+              const report = row.original;
+              if (report.status === "Draft" || report.status === "Overdue")
+                return null;
+              const isDownloading = downloadingId.value === report.id;
               return h(
                 "button",
                 {
-                  class: $style.downloadButton,
-                  onClick: (e) => {
+                  disabled: isDownloading,
+                  onClick: async (e: Event) => {
                     e.stopPropagation();
-                    // Здесь будет обработчик скачивания
+                    try {
+                      await downloadReport(report.id);
+                    } catch (err) {
+                      alert("Ошибка при скачивании: " + (err as Error).message);
+                    }
                   },
                 },
-                "Скачать",
+                isDownloading
+                  ? h("span", {
+                      class: [$style.spinner, $style.spinnerDownloading],
+                    })
+                  : h(IconDownload, { class: $style.downloadIcon }),
               );
             },
           };
@@ -462,7 +474,7 @@
                     openCorrectionModal(row.original.id);
                   },
                 },
-                "Запросить",
+                h("span", { class: $style.editText }, "Запросить"),
               );
             },
           };
@@ -612,11 +624,6 @@
                 v-for="header in headerGroup.headers"
                 :key="header.id"
                 :style="{ width: `${header.column.getSize()}px` }"
-                @click="
-                  header.column.getCanSort()
-                    ? header.column.toggleSorting()
-                    : null
-                "
               >
                 <div :class="$style.headerContent">
                   <FlexRender
@@ -626,6 +633,7 @@
                   <span
                     v-if="header.column.getCanSort()"
                     :class="$style.sortIcon"
+                    @click.stop="header.column.toggleSorting()"
                   >
                     <template v-if="header.column.getIsSorted() === false">
                       <IconSort />
@@ -935,7 +943,7 @@
     }
 
     td {
-      padding: rem(12) rem(14);
+      padding: rem(10) rem(8);
       vertical-align: center;
       text-align: center;
       font-size: rem(12);
@@ -1097,13 +1105,19 @@
   }
 
   .spinner {
-    border: 2px solid var(--a-bgAccentExLight);
-    border-top: 2px solid var(--a-bgAccentDark);
+    border: rem(3) solid var(--a-borderAccent);
+    border-top-color: var(---a-bgDark);
     border-radius: 50%;
-    width: 14px;
-    height: 14px;
+    width: rem(35);
+    height: rem(35);
     animation: spin 0.8s linear infinite;
     display: inline-block;
+
+    &.spinnerDownloading {
+      border-width: rem(2);
+      width: rem(18);
+      height: rem(18);
+    }
   }
 
   @keyframes spin {
@@ -1129,15 +1143,6 @@
     display: flex;
     justify-content: center;
     align-items: center;
-  }
-
-  .spinner {
-    width: rem(35);
-    height: rem(35);
-    border: 3px solid var(--a-borderAccent);
-    border-top-color: var(--a-bgDark);
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
   }
 
   .statusWrapper {
@@ -1238,5 +1243,11 @@
       border-radius: rem(4);
       cursor: pointer;
     }
+  }
+
+  .downloadIcon {
+    cursor: pointer;
+    width: rem(19);
+    height: auto;
   }
 </style>
