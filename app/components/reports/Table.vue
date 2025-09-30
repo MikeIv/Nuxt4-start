@@ -1,12 +1,6 @@
 <script setup lang="ts">
-  import {
-    useVueTable,
-    FlexRender,
-    getCoreRowModel,
-    getSortedRowModel,
-    type SortingState,
-  } from "@tanstack/vue-table";
-  import IconEdit from "~/assets/icons/edit-icon.svg";
+  import { FlexRender } from "@tanstack/vue-table";
+  import { useDownloadReport } from "#imports";
   import IconSort from "~/assets/icons/sort-alt.svg";
   import IconSortAsc from "~/assets/icons/sort-up.svg";
   import IconSortDesc from "~/assets/icons/sort-down.svg";
@@ -38,298 +32,155 @@
       perPage: number;
       total: number;
     };
+    loading?: boolean;
   }
 
+  const handlePerPageChange = (event: Event) => {
+    const target = event.target as HTMLSelectElement;
+    const value = target.value === "all" ? "all" : Number(target.value);
+    emit("perPageChange", value);
+  };
+
+  const { downloadReport, downloadingId } = useDownloadReport();
+
+  const downloadingIdNumber = computed<number | null>(() =>
+    typeof downloadingId.value === "number" ? downloadingId.value : null,
+  );
+
   const props = defineProps<Props>();
-  const emit = defineEmits(["pageChange", "sortChange", "selectionChange"]);
 
-  // Состояние для выбранных элементов
-  const selectedReports = ref<Set<number>>(new Set());
-  const isAllSelected = ref(false);
+  const localReports = ref<Report[]>([...props.reports]);
 
-  // Функция для массового выбора/снятия выбора
-  const toggleAllSelection = () => {
-    if (isAllSelected.value) {
-      selectedReports.value.clear();
-    } else {
-      // Выбираем только черновики
-      props.reports.forEach((report) => {
-        if (report.status === "Draft" && report.can_edit) {
-          selectedReports.value.add(report.id);
-        }
-      });
-    }
-    isAllSelected.value = !isAllSelected.value;
-    emitSelectionChange();
+  const statusColors: Record<string, string> = {
+    CorrectionRequested: "#F18D1E",
+    Submitted: "#86C03F",
+    Draft: "#000",
+    Overdue: "#FF0000",
+    Editable: "#F18D1E",
   };
 
-  // Функция для переключения выбора отдельного отчета
-  const toggleReportSelection = (reportId: number, status: string) => {
-    if (status !== "Draft") return;
+  // Обработка клика по странице
+  const handlePageChange = (page: number | string) => {
+    if (!props.pagination || page === "...") return;
 
-    if (selectedReports.value.has(reportId)) {
-      selectedReports.value.delete(reportId);
-    } else {
-      selectedReports.value.add(reportId);
-    }
-
-    // Обновляем состояние массового выбора
-    const draftReports = props.reports.filter(
-      (r) => r.status === "Draft" && r.can_edit,
+    const newPage = Math.max(
+      1,
+      Math.min(Number(page) || 1, props.pagination.lastPage),
     );
-    isAllSelected.value =
-      draftReports.length > 0 &&
-      draftReports.every((r) => selectedReports.value.has(r.id));
 
-    emitSelectionChange();
+    if (newPage !== currentPageRef.value) {
+      currentPageRef.value = newPage;
+      emit("pageChange", newPage);
+    }
   };
+
+  const visiblePages = computed<(number | string)[]>(() => {
+    if (!props.pagination) return [];
+    const total = props.pagination.lastPage;
+    const current = currentPageRef.value;
+    const delta = 2; // сколько страниц показывает вокруг текущей
+    const range: (number | string)[] = [];
+
+    for (let i = 1; i <= total; i++) {
+      if (
+        i === 1 ||
+        i === total ||
+        (i >= current - delta && i <= current + delta)
+      ) {
+        range.push(i);
+      } else if (range[range.length - 1] !== "...") {
+        range.push("...");
+      }
+    }
+
+    return range;
+  });
+
+  watch(
+    () => props.reports,
+    (newReports) => {
+      localReports.value = [...newReports];
+    },
+  );
+  const emit = defineEmits([
+    "pageChange",
+    "sortChange",
+    "selectionChange",
+    "refreshReports",
+    "perPageChange",
+  ]);
 
   // Эмитим событие с выбранными отчетами
   const emitSelectionChange = () => {
     emit("selectionChange", Array.from(selectedReports.value));
   };
 
-  const columns = computed(() => {
-    return props.headers.map((header) => {
-      const baseColumn = {
-        accessorKey: header.key,
-        header: header.label,
-        size: 150,
-        enableSorting: [
-          "period",
-          "turnover_amount",
-          "turnover_fee",
-          "status",
-        ].includes(header.key),
-      };
+  const { selectedReports, isAllSelected, hasDrafts, toggleAllSelection } =
+    useDraftSelection(localReports, emitSelectionChange);
 
-      // Специальные обработчики для определенных полей
-      switch (header.key) {
-        case "id":
-          return {
-            ...baseColumn,
-            size: 60,
-            cell: ({ row }) => {
-              if (!props.pagination) return row.index + 1;
-
-              const { currentPage, perPage } = props.pagination;
-              const number = (currentPage - 1) * perPage + row.index + 1;
-              return number < 10 ? `0${number}` : number;
-            },
-          };
-        case "period":
-          return {
-            ...baseColumn,
-            size: 200,
-            cell: ({ row }) => {
-              const [start, end] = row.original.period.split(" - ");
-              const startDate = new Date(start).toLocaleDateString();
-              const endDate = new Date(end).toLocaleDateString();
-              return `${startDate} - ${endDate}`;
-            },
-          };
-        case "status":
-          return {
-            ...baseColumn,
-            size: 180,
-            cell: ({ row }) => {
-              const statusMap: Record<string, string> = {
-                CorrectionRequested: "Запрошено исправление",
-                Submitted: "Сформирован",
-                Draft: "Черновик",
-              };
-              return statusMap[row.original.status] || row.original.status;
-            },
-          };
-        case "turnover_amount":
-        case "turnover_fee":
-          return {
-            ...baseColumn,
-            cell: ({ row }) => row.original[header.key].toLocaleString() + " ₽",
-          };
-        case "can_edit":
-          return {
-            ...baseColumn,
-            size: 120,
-            header: () =>
-              h("div", { class: $style.headerWithCheckbox }, [
-                h("span", { class: $style.headerLabel }, header.label),
-                h("input", {
-                  type: "checkbox",
-                  checked: isAllSelected.value,
-                  onChange: toggleAllSelection,
-                  class: $style.headerCheckbox,
-                  title: "Выбрать все черновики",
-                }),
-              ]),
-            cell: ({ row }) => {
-              const report = row.original;
-
-              // Если это не черновик или нельзя редактировать, показываем только кнопку редактирования
-              if (report.status !== "Draft" || !report.can_edit) {
-                if (!report.can_edit) return null;
-
-                return h(
-                  "button",
-                  {
-                    class: $style.editButton,
-                    onClick: (e) => {
-                      e.stopPropagation();
-                      navigateTo(`/reports/edit/${report.id}`);
-                    },
-                  },
-                  [h(IconEdit, { class: $style.editIcon })],
-                );
-              }
-
-              // Для черновиков показываем чекбокс и кнопку редактирования
-              return h("div", { class: $style.editCell }, [
-                h(
-                  "button",
-                  {
-                    class: $style.editButton,
-                    onClick: (e) => {
-                      e.stopPropagation();
-                      navigateTo(`/reports/edit/${report.id}`);
-                    },
-                  },
-                  [h(IconEdit, { class: $style.editIcon })],
-                ),
-                h("input", {
-                  type: "checkbox",
-                  checked: selectedReports.value.has(report.id),
-                  onChange: () =>
-                    toggleReportSelection(report.id, report.status),
-                  class: $style.rowCheckbox,
-                  title: "Выбрать черновик",
-                }),
-              ]);
-            },
-          };
-        case "can_download_documents":
-          return {
-            ...baseColumn,
-            cell: ({ row }) => {
-              if (!row.original.can_download_documents) return null;
-              return h(
-                "button",
-                {
-                  class: $style.downloadButton,
-                  onClick: (e) => {
-                    e.stopPropagation();
-                    // Здесь будет обработчик скачивания
-                  },
-                },
-                "Скачать",
-              );
-            },
-          };
-
-        case "can_request_correction":
-          return {
-            ...baseColumn,
-            size: 150,
-            cell: ({ row }) => {
-              if (!row.original.can_request_correction) return null;
-
-              return h(
-                "button",
-                {
-                  class: $style.requestButton,
-                  onClick: async (e) => {
-                    console.log(e);
-                    // ... обработчик клика
-                  },
-                },
-                "Запросить",
-              );
-            },
-          };
-
-        default:
-          return baseColumn;
-      }
-    });
+  const perPageValue = computed<string>(() => {
+    if (!props.pagination) return "all";
+    return props.pagination.perPage >= props.pagination.total
+      ? "all"
+      : String(props.pagination.perPage);
   });
 
-  const sorting = ref<SortingState>([]);
-
-  const table = useVueTable({
-    get data() {
-      return props.reports;
-    },
-    get columns() {
-      return columns.value;
-    },
-    state: {
-      get sorting() {
-        return sorting.value;
-      },
-    },
-    onSortingChange: (updater) => {
-      sorting.value =
-        typeof updater === "function" ? updater(sorting.value) : updater;
-      emit("sortChange", sorting.value);
-    },
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-  });
+  const {
+    showCorrectionModal,
+    correctionText,
+    openCorrectionModal,
+    closeCorrectionModal,
+    submitCorrection,
+    showDeleteModal,
+    confirmDeleteReport,
+    handleConfirmDelete,
+    handleCancelDelete,
+    deleteAllSelectedReports,
+    isDeleting,
+    deletedRows,
+    deletingReports,
+    currentPageRef,
+  } = useReportsModals(
+    localReports,
+    selectedReports,
+    emitSelectionChange,
+    emit,
+    props,
+  );
 
   watch(
     () => props.pagination?.currentPage,
-    (newVal, oldVal) => {
-      if (newVal !== oldVal) {
-        sorting.value = [...sorting.value];
+    (newPage) => {
+      const pageNumber = Number(newPage) || 1; // приводим к числу
+      if (pageNumber !== currentPageRef.value) {
+        currentPageRef.value = pageNumber;
       }
     },
+    { immediate: true },
   );
 
-  const pageNumbers = computed(() => {
-    if (!props.pagination) return [];
-    const { currentPage, lastPage } = props.pagination;
-    const range: (number | string)[] = [];
-
-    range.push(1);
-
-    if (currentPage > 3) {
-      range.push("left...");
-    }
-
-    for (
-      let i = Math.max(2, currentPage - 1);
-      i <= Math.min(lastPage - 1, currentPage + 1);
-      i++
-    ) {
-      range.push(i);
-    }
-
-    if (currentPage < lastPage - 2) {
-      range.push("right...");
-    }
-
-    if (lastPage > 1) {
-      range.push(lastPage);
-    }
-
-    return range;
-  });
-
-  const handlePageChange = (page: number) => {
-    if (
-      page >= 1 &&
-      page <= props.pagination?.lastPage &&
-      page !== props.pagination?.currentPage
-    ) {
-      emit("pageChange", page);
-    }
-  };
-
-  const buttonClasses = computed(() => {
-    return pageNumbers.value.map((page) => ({
-      [$style.pageButton]: true,
-      [$style.active]: page === (props.pagination?.currentPage || 1),
-      [$style.disabled]: page === "...",
-    }));
+  const { table } = useReportsTable({
+    headers: props.headers,
+    reports: localReports,
+    pagination: props.pagination
+      ? (toRef(props, "pagination") as Ref<{
+          currentPage: number;
+          lastPage: number;
+          perPage: number;
+          total: number;
+        }>)
+      : undefined,
+    selectedReports,
+    isDeleting,
+    deletingReports,
+    statusColors,
+    downloadingId: downloadingIdNumber,
+    downloadReport,
+    openCorrectionModal,
+    confirmDeleteReport,
+    emitSortChange: (s) => emit("sortChange", s),
+    $style,
+    navigateTo,
   });
 </script>
 
@@ -350,11 +201,6 @@
                 v-for="header in headerGroup.headers"
                 :key="header.id"
                 :style="{ width: `${header.column.getSize()}px` }"
-                @click="
-                  header.column.getCanSort()
-                    ? header.column.toggleSorting()
-                    : null
-                "
               >
                 <div :class="$style.headerContent">
                   <FlexRender
@@ -364,6 +210,7 @@
                   <span
                     v-if="header.column.getCanSort()"
                     :class="$style.sortIcon"
+                    @click.stop="header.column.toggleSorting()"
                   >
                     <template v-if="header.column.getIsSorted() === false">
                       <IconSort />
@@ -383,46 +230,130 @@
           </thead>
           <tbody :class="$style.tableBody">
             <tr v-for="row in table.getRowModel().rows" :key="row.id">
-              <td v-for="cell in row.getVisibleCells()" :key="cell.id">
-                <FlexRender
-                  :render="cell.column.columnDef.cell"
-                  :props="cell.getContext()"
-                />
-              </td>
+              <template v-if="deletedRows.has(row.original.id)">
+                <td
+                  :colspan="table.getAllColumns().length"
+                  :class="$style.deletedRow"
+                >
+                  Черновик удален
+                </td>
+              </template>
+              <template v-else>
+                <td v-for="cell in row.getVisibleCells()" :key="cell.id">
+                  <FlexRender
+                    :render="cell.column.columnDef.cell"
+                    :props="cell.getContext()"
+                  />
+                </td>
+              </template>
             </tr>
+            <div v-if="loading" :class="$style.overlay">
+              <span :class="$style.spinner" />
+            </div>
           </tbody>
         </table>
+      </div>
+      <!-- Подтверждение удаления -->
+      <div v-if="showDeleteModal" :class="$style.modalOverlay">
+        <div :class="$style.modalContent">
+          <p>Вы уверены, что хотите удалить?</p>
+          <div :class="$style.modalButtons">
+            <button :class="$style.confirmButton" @click="handleConfirmDelete">
+              Удалить
+            </button>
+            <button :class="$style.cancelButton" @click="handleCancelDelete">
+              Отмена
+            </button>
+          </div>
+        </div>
+      </div>
+      <!-- Запрос исправления -->
+      <div v-if="showCorrectionModal" :class="$style.modalOverlay">
+        <div :class="$style.modalContent">
+          <h3>Запросить исправление</h3>
+          <input
+            v-model="correctionText"
+            type="text"
+            placeholder="Введите комментарий"
+            :class="$style.modalInput"
+          />
+          <div :class="$style.modalButtons">
+            <button :class="$style.confirmButton" @click="submitCorrection">
+              Отправить
+            </button>
+            <button :class="$style.cancelButton" @click="closeCorrectionModal">
+              Отмена
+            </button>
+          </div>
+        </div>
+      </div>
+      <div :class="$style.footerBtnWrapper">
+        <button
+          v-if="hasDrafts && selectedReports.size >= 1"
+          :class="$style.selectAllButton"
+          :disabled="isDeleting"
+          @click="toggleAllSelection"
+        >
+          {{ isAllSelected ? "Отменить выбор" : "Выбрать все черновики" }}
+        </button>
+        <button
+          v-if="selectedReports.size > 1"
+          :class="$style.deleteAllButton"
+          :disabled="isDeleting"
+          @click="deleteAllSelectedReports"
+        >
+          {{ isDeleting ? "Удаление..." : "Удалить все выбранные" }}
+        </button>
       </div>
     </template>
 
     <footer :class="$style.footer">
+      <div :class="$style.perPageSelector">
+        <label>Показывать отчеты:</label>
+        <select :value="perPageValue" @change="handlePerPageChange">
+          <option value="12">12</option>
+          <option value="25">25</option>
+          <option value="50">50</option>
+          <option value="all">Все</option>
+        </select>
+      </div>
       <div v-if="pagination" :class="$style.pagination">
         <button
-          :class="{
-            [$style.pageButton]: true,
-            [$style.disabled]: pagination.currentPage === 1,
-          }"
-          @click="handlePageChange(pagination.currentPage - 1)"
+          :class="[
+            $style.pageButton,
+            { [$style.disabled]: currentPageRef <= 1 },
+          ]"
+          :disabled="currentPageRef <= 1"
+          @click="handlePageChange(currentPageRef - 1)"
         >
           Назад
         </button>
+
         <div :class="$style.pageNumbers">
           <button
-            v-for="(page, index) in pageNumbers"
-            :key="`page-${index}-${page}`"
-            :class="buttonClasses[index]"
-            @click="typeof page === 'number' && handlePageChange(page)"
+            v-for="page in visiblePages"
+            :key="page"
+            :class="[
+              $style.pageButton,
+              {
+                [$style.active]:
+                  page !== '...' && Number(page) === currentPageRef,
+                [$style.disabled]: page === '...',
+              },
+            ]"
+            @click="handlePageChange(page)"
           >
-            {{ page === "..." ? "..." : page }}
+            {{ page }}
           </button>
         </div>
 
         <button
-          :class="{
-            [$style.pageButton]: true,
-            [$style.disabled]: pagination.currentPage === pagination.lastPage,
-          }"
-          @click="handlePageChange(pagination.currentPage + 1)"
+          :class="[
+            $style.pageButton,
+            { [$style.disabled]: currentPageRef >= pagination.lastPage },
+          ]"
+          :disabled="currentPageRef >= pagination.lastPage"
+          @click="handlePageChange(currentPageRef + 1)"
         >
           Вперед
         </button>
@@ -441,7 +372,7 @@
   .tableContainer {
     display: flex;
     flex-direction: column;
-    height: rem(600);
+    height: rem(700);
     overflow: hidden;
   }
 
@@ -476,6 +407,16 @@
     -ms-overflow-style: -ms-autohiding-scrollbar;
   }
 
+  .footer {
+    flex: 0;
+    display: flex;
+    align-items: center;
+  }
+
+  .footer > div:first-child {
+    flex: 1;
+  }
+
   .reportsTable {
     width: 100%;
     border-collapse: separate;
@@ -491,7 +432,7 @@
     th {
       position: sticky;
       top: 0;
-      padding: rem(12) rem(14);
+      padding: rem(10) rem(14);
       text-align: center;
       font-size: rem(12);
       font-weight: 600;
@@ -502,6 +443,11 @@
 
       &:last-child {
         border-right: none;
+        border-top-right-radius: rem(20);
+      }
+
+      &:first-child {
+        border-top-left-radius: rem(20);
       }
     }
   }
@@ -526,7 +472,6 @@
     font-weight: 600;
   }
 
-  .headerCheckbox,
   .rowCheckbox {
     width: rem(16);
     height: rem(16);
@@ -534,10 +479,6 @@
     background-color: var(--a-bgAccentDark);
     color: var(--a-errorText);
 
-    &:focus {
-      outline: 2px solid var(--a-borderAccent);
-      outline-offset: 2px;
-    }
     &:checked {
       background-color: var(--a-bgAccentDark);
       color: var(--a-errorText);
@@ -546,9 +487,8 @@
 
   .editCell {
     display: flex;
-    align-items: center;
     justify-content: center;
-    gap: rem(8);
+    gap: rem(10);
   }
 
   .sortIcon {
@@ -567,12 +507,20 @@
 
       &:hover {
         background-color: var(--a-bgTableLight);
-        cursor: pointer;
+      }
+
+      &:last-child {
+        td:first-child {
+          border-bottom-left-radius: rem(15);
+        }
+        td:last-child {
+          border-bottom-right-radius: rem(15);
+        }
       }
     }
 
     td {
-      padding: rem(12) rem(14);
+      padding: rem(10) rem(8);
       vertical-align: center;
       text-align: center;
       font-size: rem(12);
@@ -587,11 +535,14 @@
     }
   }
 
-  .editButton {
-    background: none;
-    border: none;
-    padding: rem(4);
+  .editButton,
+  .deleteButton {
+    display: inline-flex;
+    align-items: center;
+    gap: rem(6);
+    padding: rem(3);
     border-radius: rem(4);
+    border: 1px solid var(--a-borderAccent);
     cursor: pointer;
     transition: background-color 0.2s;
 
@@ -606,15 +557,13 @@
   }
 
   .editIcon {
-    width: rem(16);
-    height: rem(16);
+    width: rem(13);
+    height: rem(13);
     color: var(--a-bgAccentDark);
   }
 
-  .footer {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+  .editText {
+    line-height: 1;
   }
 
   .pagination {
@@ -622,12 +571,15 @@
     align-items: center;
     gap: 8px;
     padding: 16px 0;
-    margin-top: auto;
+    flex: 0;
+    margin: 0 auto;
   }
 
   .reportTotal {
+    flex: 1;
     display: flex;
     align-items: center;
+    justify-content: flex-end;
     padding-right: rem(40);
   }
 
@@ -646,7 +598,7 @@
 
   .pageNumbers {
     display: flex;
-    gap: 4px;
+    gap: rem(4);
   }
 
   .pageButton {
@@ -657,22 +609,59 @@
     line-height: 1.2;
     border: 1px solid var(--a-borderAccent);
     background: var(--a-bgAccentExLight);
-    border-radius: 4px;
+    border-radius: rem(4);
     cursor: pointer;
     transition: all 0.2s;
 
     &:hover:not(.disabled) {
-      background: #f1f5f9;
-      border-color: #cbd5e1;
+      background: var(--a-bgGrayLight);
+      border-color: var(--a-bgGrayDark);
     }
 
     &.active {
       background: var(--a-bgAccentDark);
       color: var(--a-white);
       border-color: var(--a-borderAccentDark);
+      &:hover {
+        cursor: not-allowed;
+        background: var(--a-bgAccentDark);
+        border-color: var(--a-borderAccentDark);
+      }
     }
 
     &.disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  }
+
+  .footerBtnWrapper {
+    display: inline-flex;
+    margin-top: rem(10);
+    gap: rem(10);
+  }
+
+  .selectAllButton,
+  .deleteAllButton {
+    width: rem(180);
+    height: rem(25);
+    padding: rem(4) rem(8);
+    font-size: rem(12);
+    font-weight: 600;
+    color: var(--a-mainText);
+    line-height: 1;
+    border: 1px solid var(--a-borderAccent);
+    background: var(--a-bgAccentExLight);
+    border-radius: rem(4);
+    cursor: pointer;
+    transition: all 0.3s;
+
+    &:hover {
+      color: var(--a-white);
+      background-color: var(--a-bgAccentDark);
+    }
+
+    &:disabled {
       opacity: 0.5;
       cursor: not-allowed;
     }
@@ -682,13 +671,160 @@
     background: var(--a-bgAccentExLight);
     color: white;
     border: none;
-    padding: 6px 12px;
-    border-radius: 4px;
+    padding: rem(6) rem(12);
+    border-radius: rem(4);
     cursor: pointer;
     transition: background 0.2s;
 
     &:hover {
       background: var(--a-bgAccent);
     }
+  }
+
+  .spinner {
+    border: rem(3) solid var(--a-borderAccent);
+    border-top-color: var(---a-bgDark);
+    border-radius: 50%;
+    width: rem(35);
+    height: rem(35);
+    animation: spin 0.8s linear infinite;
+    display: inline-block;
+
+    &.spinnerDownloading {
+      border-width: rem(2);
+      width: rem(18);
+      height: rem(18);
+    }
+  }
+
+  @keyframes spin {
+    0% {
+      transform: rotate(0deg);
+    }
+    100% {
+      transform: rotate(360deg);
+    }
+  }
+
+  .deletedRow {
+    text-align: center;
+    font-weight: 600;
+    color: var(--code-ident);
+    background-color: var(--a-bgLight);
+  }
+
+  .overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(255, 255, 255, 0.6);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .statusWrapper {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    gap: rem(2);
+  }
+
+  .statusText {
+    display: inline-block;
+  }
+
+  .statusLine {
+    width: 100%;
+    max-width: 100%;
+    height: rem(2);
+  }
+
+  .modalOverlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+  }
+
+  .modalContent {
+    background: var(--a-white);
+    padding: rem(20);
+    border-radius: rem(10);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-width: rem(400);
+  }
+
+  .modalButtons {
+    margin-top: rem(20);
+    display: flex;
+    gap: rem(30);
+  }
+
+  .cancelButton,
+  .confirmButton {
+    padding: rem(6) rem(12);
+    font-size: rem(14);
+    font-weight: 600;
+    border-radius: rem(6);
+    border: none;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+
+  .cancelButton {
+    background: var(--a-bgGrayLight);
+    &:hover {
+      background: var(--a-bgGray);
+    }
+  }
+
+  .confirmButton {
+    background: #f44336;
+    color: var(--a-white);
+    &:hover {
+      background: #d32f2f;
+    }
+  }
+
+  .modalInput {
+    width: 100%;
+    padding: rem(8);
+    font-size: rem(14);
+    margin-top: rem(10);
+    border: 1px solid var(--a-borderAccent);
+    border-radius: rem(6);
+  }
+
+  .perPageSelector {
+    display: flex;
+    align-items: center;
+    gap: rem(8);
+    margin-right: rem(20);
+
+    label {
+      font-size: rem(12);
+      font-weight: 600;
+      color: var(--a-mainText);
+    }
+
+    select {
+      padding: rem(4) rem(8);
+      font-size: rem(12);
+      border: 1px solid var(--a-borderAccent);
+      border-radius: rem(4);
+      cursor: pointer;
+    }
+  }
+
+  .downloadIcon {
+    cursor: pointer;
+    width: rem(19);
+    height: auto;
   }
 </style>
