@@ -1,18 +1,9 @@
 <script setup lang="ts">
-  import {
-    useVueTable,
-    FlexRender,
-    getCoreRowModel,
-    getSortedRowModel,
-    type SortingState,
-  } from "@tanstack/vue-table";
-  import { useAuthStore, useDownloadReport } from "#imports";
-  import IconEdit from "~/assets/icons/edit-icon.svg";
+  import { FlexRender } from "@tanstack/vue-table";
+  import { useDownloadReport } from "#imports";
   import IconSort from "~/assets/icons/sort-alt.svg";
   import IconSortAsc from "~/assets/icons/sort-up.svg";
   import IconSortDesc from "~/assets/icons/sort-down.svg";
-  import IconDelete from "~/assets/icons/delete-icon.svg";
-  import IconDownload from "~/assets/icons/icon-download.svg";
 
   const $style = useCssModule();
 
@@ -44,28 +35,21 @@
     loading?: boolean;
   }
 
-  type ApiResponsePayload<T = unknown> = T;
-
-  type ApiResponse<T = unknown> = {
-    success: boolean;
-    message?: string;
-    payload?: ApiResponsePayload<T>;
+  const handlePerPageChange = (event: Event) => {
+    const target = event.target as HTMLSelectElement;
+    const value = target.value === "all" ? "all" : Number(target.value);
+    emit("perPageChange", value);
   };
 
   const { downloadReport, downloadingId } = useDownloadReport();
 
-  const isDeleting = ref(false);
-  const deletingReports = ref<Set<number>>(new Set());
-  const deletedRows = ref<Set<number>>(new Set());
-
-  const authStore = useAuthStore();
-  const config = useRuntimeConfig();
+  const downloadingIdNumber = computed<number | null>(() =>
+    typeof downloadingId.value === "number" ? downloadingId.value : null,
+  );
 
   const props = defineProps<Props>();
 
   const localReports = ref<Report[]>([...props.reports]);
-
-  const currentPageRef = ref<number>(props.pagination?.currentPage ?? 1);
 
   const statusColors: Record<string, string> = {
     CorrectionRequested: "#F18D1E",
@@ -74,67 +58,6 @@
     Overdue: "#FF0000",
     Editable: "#F18D1E",
   };
-
-  const showCorrectionModal = ref(false);
-  const reportToCorrect = ref<number | null>(null);
-  const correctionText = ref("");
-
-  const openCorrectionModal = (reportId: number) => {
-    reportToCorrect.value = reportId;
-    correctionText.value = "";
-    showCorrectionModal.value = true;
-  };
-
-  const closeCorrectionModal = () => {
-    reportToCorrect.value = null;
-    correctionText.value = "";
-    showCorrectionModal.value = false;
-  };
-
-  const submitCorrection = () => {
-    console.log(
-      "Запрос исправления:",
-      reportToCorrect.value,
-      correctionText.value,
-    );
-    // пока не отправляем на бэк
-    closeCorrectionModal();
-  };
-
-  const showDeleteModal = ref(false);
-  const reportToDelete = ref<number | null>(null);
-
-  // Открытие модалки
-  const confirmDeleteReport = (reportId: number) => {
-    reportToDelete.value = reportId;
-    showDeleteModal.value = true;
-  };
-
-  // Подтверждение удаления
-  const handleConfirmDelete = () => {
-    if (reportToDelete.value !== null) {
-      deleteReport(reportToDelete.value);
-      reportToDelete.value = null;
-    }
-    showDeleteModal.value = false;
-  };
-
-  // Отмена удаления
-  const handleCancelDelete = () => {
-    reportToDelete.value = null;
-    showDeleteModal.value = false;
-  };
-
-  watch(
-    () => props.pagination?.currentPage,
-    (newPage) => {
-      const pageNumber = Number(newPage) || 1; // приводим к числу
-      if (pageNumber !== currentPageRef.value) {
-        currentPageRef.value = pageNumber;
-      }
-    },
-    { immediate: true },
-  );
 
   // Обработка клика по странице
   const handlePageChange = (page: number | string) => {
@@ -187,423 +110,77 @@
     "perPageChange",
   ]);
 
-  // Состояние для выбранных элементов
-  const selectedReports = ref<Set<number>>(new Set());
-  const isAllSelected = ref(false);
-
-  // Функция для массового выбора/снятия выбора
-  const toggleAllSelection = () => {
-    if (isAllSelected.value) {
-      selectedReports.value.clear();
-    } else {
-      // Выбираем только черновики
-      localReports.value.forEach((report) => {
-        if (report.status === "Draft" && report.can_edit) {
-          selectedReports.value.add(report.id);
-        }
-      });
-    }
-    isAllSelected.value = !isAllSelected.value;
-    emitSelectionChange();
-  };
-
-  // Функция для переключения выбора отдельного отчета
-  const toggleReportSelection = (reportId: number, status: string) => {
-    if (status !== "Draft") return;
-
-    if (selectedReports.value.has(reportId)) {
-      selectedReports.value.delete(reportId);
-    } else {
-      selectedReports.value.add(reportId);
-    }
-
-    // Обновляем состояние массового выбора
-    const draftReports = localReports.value.filter(
-      (r) => r.status === "Draft" && r.can_edit,
-    );
-    isAllSelected.value =
-      draftReports.length > 0 &&
-      draftReports.every((r) => selectedReports.value.has(r.id));
-
-    emitSelectionChange();
-  };
-
   // Эмитим событие с выбранными отчетами
   const emitSelectionChange = () => {
     emit("selectionChange", Array.from(selectedReports.value));
   };
 
-  const sorting = ref<SortingState>([]);
-
-  const sortedReports = computed(() => {
-    return [...localReports.value].sort((a, b) => {
-      const aEndStr =
-        (a.period.split(" - ")[1] ?? a.period.split(" - ")[0]) || "";
-      const bEndStr =
-        (b.period.split(" - ")[1] ?? b.period.split(" - ")[0]) || "";
-
-      // Приводим к ISO: "2024-08-29 00:00:00" → "2024-08-29T00:00:00"
-      const dateA = new Date(aEndStr.replace(" ", "T")).getTime();
-      const dateB = new Date(bEndStr.replace(" ", "T")).getTime();
-
-      return dateB - dateA; // свежие выше
-    });
-  });
-
-  const columns = computed(() => {
-    const selectColumn = {
-      id: "select",
-      size: 60,
-      header: () => h("div", { class: $style.headerLabel }, ""), // заголовок пустой
-      cell: ({ row }: { row: { original: Report; index: number } }) => {
-        const report = row.original;
-        if (report.status !== "Draft" || !report.can_edit) return null;
-
-        return h("input", {
-          type: "checkbox",
-          checked: selectedReports.value.has(report.id),
-          disabled: isDeleting.value || deletingReports.value.has(report.id),
-          onChange: () => toggleReportSelection(report.id, report.status),
-          class: $style.rowCheckbox,
-          title: "Выбрать черновик",
-        });
-      },
-    };
-
-    const otherColumns = props.headers.map((header) => {
-      const baseColumn = {
-        accessorKey: header.key,
-        header: header.label,
-        size: 150,
-        enableSorting: [
-          "period",
-          "turnover_amount",
-          "turnover_fee",
-          "status",
-        ].includes(header.key),
-      };
-
-      // Специальные обработчики для определенных полей
-      switch (header.key) {
-        case "id":
-          return {
-            ...baseColumn,
-            size: 60,
-            cell: ({ row }: { row: { original: Report; index: number } }) => {
-              if (!props.pagination) return row.index + 1;
-
-              const { currentPage, perPage } = props.pagination;
-              const number = (currentPage - 1) * perPage + row.index + 1;
-              return number < 10 ? `0${number}` : number;
-            },
-          };
-        case "period":
-          return {
-            ...baseColumn,
-            size: 200,
-            cell: ({ row }: { row: { original: Report; index: number } }) => {
-              const [startRow, endRow] = row.original.period.split(" - ");
-              const start = startRow ?? row.original.period;
-              const end = endRow ?? row.original.period;
-
-              const startDate = new Date(start).toLocaleDateString();
-              const endDate = new Date(end).toLocaleDateString();
-              return `${startDate} - ${endDate}`;
-            },
-          };
-        case "status":
-          return {
-            ...baseColumn,
-            size: 180,
-            cell: ({ row }: { row: { original: Report; index: number } }) => {
-              const statusMap: Record<string, string> = {
-                CorrectionRequested: "Запрошено исправление",
-                Submitted: "Сформирован",
-                Draft: "Черновик",
-                Overdue: "Просрочен",
-                Editable: "Доступен к исправлению",
-              };
-
-              const statusText =
-                statusMap[row.original.status] || row.original.status;
-              const color = statusColors[row.original.status];
-
-              return h("div", { class: $style.statusWrapper }, [
-                h("span", { class: $style.statusText }, statusText),
-                h("div", {
-                  class: $style.statusLine,
-                  style: { backgroundColor: color },
-                }),
-              ]);
-            },
-          };
-        case "turnover_amount":
-        case "turnover_fee":
-          return {
-            ...baseColumn,
-            size: 190,
-            cell: ({ row }: { row: { original: Report; index: number } }) => {
-              const key = header.key as keyof Report;
-              const value = row.original[key] as number;
-              return value.toLocaleString() + " ₽";
-            },
-          };
-        case "can_edit":
-          return {
-            ...baseColumn,
-            size: 200,
-            header: () =>
-              h("div", { class: $style.headerWithCheckbox }, [
-                h("span", { class: $style.headerLabel }, header.label),
-              ]),
-            cell: ({ row }: { row: { original: Report; index: number } }) => {
-              const report = row.original;
-
-              // Для черновиков показываем редактирование и кнопку удалить
-              if (report.status === "Draft" && report.can_edit) {
-                return h("div", { class: $style.editCell }, [
-                  h(
-                    "button",
-                    {
-                      class: $style.editButton,
-                      disabled:
-                        deletingReports.value.has(report.id) ||
-                        selectedReports.value.size > 1 ||
-                        (selectedReports.value.size === 1 &&
-                          !selectedReports.value.has(report.id)),
-                      onClick: (e) => {
-                        e.stopPropagation();
-                        navigateTo(`/reports/edit/${report.id}`);
-                      },
-                    },
-                    [
-                      h(IconEdit, { class: $style.editIcon }),
-                      h("span", { class: $style.editText }, "Редактировать"),
-                    ],
-                  ),
-                  h(
-                    "button",
-                    {
-                      class: $style.deleteButton,
-                      disabled:
-                        isDeleting.value ||
-                        selectedReports.value.size > 1 ||
-                        (selectedReports.value.size === 1 &&
-                          !selectedReports.value.has(report.id)),
-                      onClick: (e: Event) => {
-                        e.stopPropagation();
-                        confirmDeleteReport(report.id);
-                      },
-                    },
-                    [
-                      h(IconDelete, { class: $style.editIcon }),
-                      h("span", { class: $style.editText }, "Удалить"),
-                    ],
-                  ),
-                ]);
-              }
-
-              // Для статуса Editable показываем только кнопку редактирования
-              if (report.status === "Editable" && report.can_edit) {
-                return h("div", { class: $style.editCell }, [
-                  h(
-                    "button",
-                    {
-                      class: $style.editButton,
-                      onClick: (e) => {
-                        e.stopPropagation();
-                        navigateTo(`/reports/edit/${report.id}`);
-                      },
-                    },
-                    [
-                      h(IconEdit, { class: $style.editIcon }),
-                      h("span", { class: $style.editText }, "Редактировать"),
-                    ],
-                  ),
-                ]);
-              }
-
-              // Для других статусов показываем только кнопку редактирования, если можно редактировать
-              if (!report.can_edit) return null;
-            },
-          };
-        case "can_download_documents":
-          return {
-            ...baseColumn,
-            size: 120,
-            cell: ({ row }: { row: { original: Report; index: number } }) => {
-              const report = row.original;
-              if (report.status === "Draft" || report.status === "Overdue")
-                return null;
-              const isDownloading = downloadingId.value === report.id;
-              return h(
-                "button",
-                {
-                  disabled: isDownloading,
-                  onClick: async (e: Event) => {
-                    e.stopPropagation();
-                    try {
-                      await downloadReport(report.id);
-                    } catch (err) {
-                      alert("Ошибка при скачивании: " + (err as Error).message);
-                    }
-                  },
-                },
-                isDownloading
-                  ? h("span", {
-                      class: [$style.spinner, $style.spinnerDownloading],
-                    })
-                  : h(IconDownload, { class: $style.downloadIcon }),
-              );
-            },
-          };
-
-        case "can_request_correction":
-          return {
-            ...baseColumn,
-            size: 120,
-            cell: ({ row }: { row: { original: Report; index: number } }) => {
-              if (!row.original.can_request_correction) return null;
-
-              return h(
-                "button",
-                {
-                  class: $style.editButton,
-                  onClick: (e) => {
-                    e.stopPropagation();
-                    openCorrectionModal(row.original.id);
-                  },
-                },
-                h("span", { class: $style.editText }, "Запросить"),
-              );
-            },
-          };
-
-        default:
-          return baseColumn;
-      }
-    });
-
-    return [selectColumn, ...otherColumns];
-  });
-
-  const table = useVueTable({
-    get data() {
-      return sortedReports.value;
-    },
-    get columns() {
-      return columns.value;
-    },
-    state: {
-      get sorting() {
-        return sorting.value;
-      },
-    },
-    onSortingChange: (updater) => {
-      sorting.value =
-        typeof updater === "function" ? updater(sorting.value) : updater;
-      emit("sortChange", sorting.value);
-    },
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-  });
-
-  const hasDrafts = computed(() =>
-    localReports.value.some((r) => r.status === "Draft" && r.can_edit),
-  );
-
-  const deleteReports = async (reportIds: number[]) => {
-    if (!reportIds.length) return;
-
-    isDeleting.value = true;
-
-    try {
-      const token = authStore.token;
-      if (!token) throw new Error("Пользователь не авторизован");
-
-      // Показываем анимацию удаления
-      reportIds.forEach((id) => deletedRows.value.add(id));
-
-      // Отправляем запросы параллельно
-      const results = await Promise.allSettled(
-        reportIds.map((id) =>
-          $fetch<ApiResponse>(`/tenants/reports/${id}`, {
-            baseURL: config.public.apiBase,
-            method: "DELETE",
-            headers: {
-              Accept: "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-          }),
-        ),
-      );
-
-      const deletedIds: number[] = [];
-      results.forEach((res, idx) => {
-        const id = reportIds[idx];
-        if (
-          id !== undefined &&
-          res.status === "fulfilled" &&
-          res.value.success
-        ) {
-          deletedIds.push(id);
-        }
-      });
-
-      // Обновляем локальное состояние
-      localReports.value = localReports.value.filter(
-        (report) => !deletedIds.includes(report.id),
-      );
-
-      // Убираем удаленные из selectedReports
-      deletedIds.forEach((id) => selectedReports.value.delete(id));
-      emitSelectionChange();
-
-      // Корректировка текущей страницы
-      if (props.pagination) {
-        const totalAfterDelete = props.pagination.total - deletedIds.length;
-        const perPage = props.pagination.perPage;
-        const lastPage = Math.ceil(totalAfterDelete / perPage) || 1;
-
-        if (currentPageRef.value > lastPage) {
-          currentPageRef.value = lastPage;
-        }
-      }
-
-      const DELETE_ANIMATION_DURATION = 1000;
-
-      // Убираем анимацию через и обновляем текущую страницу
-      setTimeout(() => {
-        deletedIds.forEach((id) => deletedRows.value.delete(id));
-        emit("pageChange", currentPageRef.value);
-      }, DELETE_ANIMATION_DURATION);
-    } catch (err: unknown) {
-      console.error(err);
-      alert("Ошибка при удалении отчётов: " + (err as Error).message);
-    } finally {
-      isDeleting.value = false;
-    }
-  };
-
-  const deleteReport = (reportId: number) => {
-    deleteReports([reportId]);
-  };
-
-  const deleteAllSelectedReports = () => {
-    deleteReports(Array.from(selectedReports.value));
-  };
-
-  const handlePerPageChange = (event: Event) => {
-    const target = event.target as HTMLSelectElement;
-    const value = target.value === "all" ? "all" : Number(target.value);
-    emit("perPageChange", value);
-  };
+  const { selectedReports, isAllSelected, hasDrafts, toggleAllSelection } =
+    useDraftSelection(localReports, emitSelectionChange);
 
   const perPageValue = computed<string>(() => {
     if (!props.pagination) return "all";
     return props.pagination.perPage >= props.pagination.total
       ? "all"
       : String(props.pagination.perPage);
+  });
+
+  const {
+    showCorrectionModal,
+    correctionText,
+    openCorrectionModal,
+    closeCorrectionModal,
+    submitCorrection,
+    showDeleteModal,
+    confirmDeleteReport,
+    handleConfirmDelete,
+    handleCancelDelete,
+    deleteAllSelectedReports,
+    isDeleting,
+    deletedRows,
+    deletingReports,
+    currentPageRef,
+  } = useReportsModals(
+    localReports,
+    selectedReports,
+    emitSelectionChange,
+    emit,
+    props,
+  );
+
+  watch(
+    () => props.pagination?.currentPage,
+    (newPage) => {
+      const pageNumber = Number(newPage) || 1; // приводим к числу
+      if (pageNumber !== currentPageRef.value) {
+        currentPageRef.value = pageNumber;
+      }
+    },
+    { immediate: true },
+  );
+
+  const { table } = useReportsTable({
+    headers: props.headers,
+    reports: localReports,
+    pagination: props.pagination
+      ? (toRef(props, "pagination") as Ref<{
+          currentPage: number;
+          lastPage: number;
+          perPage: number;
+          total: number;
+        }>)
+      : undefined,
+    selectedReports,
+    isDeleting,
+    deletingReports,
+    statusColors,
+    downloadingId: downloadingIdNumber,
+    downloadReport,
+    openCorrectionModal,
+    confirmDeleteReport,
+    emitSortChange: (s) => emit("sortChange", s),
+    $style,
+    navigateTo,
   });
 </script>
 

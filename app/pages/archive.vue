@@ -1,39 +1,21 @@
 <script setup lang="ts">
-  import type { ReportApiResponse } from "~/types";
+  import { onMounted } from "vue";
+  import { useReports } from "~/composables/archive/useReports";
 
   const {
-    callApi: loadReports,
-    data: apiResponse,
+    isRefreshing,
+    apiResponse,
     isLoading,
     error,
-  } = useApi<ReportApiResponse>();
-
-  // флаг фонового обновления
-  const isRefreshing = ref(false);
-
-  const perPage = ref(12);
+    init,
+    loadPage,
+    refreshReports,
+    handlePerPageChange,
+  } = useReports();
 
   onMounted(async () => {
-    await loadReports(`/tenants/reports?perPage=${perPage.value}`);
+    await init();
   });
-
-  const loadPage = async (page: number) => {
-    isRefreshing.value = true;
-    await loadReports(`/tenants/reports?page=${page}&perPage=${perPage.value}`);
-    isRefreshing.value = false;
-  };
-
-  const refreshReports = async (page: number) => {
-    isRefreshing.value = true;
-    await loadReports(`/tenants/reports?page=${page}&perPage=${perPage.value}`);
-    isRefreshing.value = false;
-  };
-
-  const handlePerPageChange = async (newPerPage: number | "all") => {
-    const perPageParam = newPerPage === "all" ? 10000 : newPerPage;
-    perPage.value = perPageParam;
-    await loadReports(`/tenants/reports?page=1&perPage=${perPageParam}`);
-  };
 </script>
 
 <template>
