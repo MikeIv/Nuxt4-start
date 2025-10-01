@@ -4,12 +4,18 @@ export const useUserData = () => {
   const userStore = useUserStore();
   const { callApi } = useApi<UserData>();
 
-  const fetchUser = async (): Promise<UserData | null> => {
+  const fetchUser = async (contractId?: number): Promise<UserData | null> => {
     userStore.setLoading(true);
     userStore.setError(null);
 
     try {
-      const result = await callApi("/user/me");
+      const headers: Record<string, string> = {};
+
+      if (contractId) {
+        headers["Contract-id"] = contractId.toString();
+      }
+
+      const result = await callApi("/user/me", { headers });
       console.log("result###", result);
 
       if (result && "payload" in result && result.payload) {

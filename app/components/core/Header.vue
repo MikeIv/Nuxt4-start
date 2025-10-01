@@ -89,12 +89,16 @@
 
   const hasContractsToShow = computed(() => filteredContracts.value.length > 0);
 
-  const handleContractChange = async () => {
+  const handleContractChange = async (id: number) => {
+    console.log("contract change", id);
     try {
       isLoading.value = true;
       error.value = null;
 
+      await fetchUser(id);
+
       await refreshNuxtData();
+
       await navigateTo({ path: "/" }, { replace: true });
     } catch (e: unknown) {
       const errorMessage =
