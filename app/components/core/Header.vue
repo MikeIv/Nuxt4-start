@@ -47,7 +47,6 @@
 
       await authStore.logOut();
 
-      // Очищаем данные пользователя при выходе
       userStore.clearUser();
 
       if (import.meta.env.VITE_API_DATA_ONLY_MODE) {
@@ -90,7 +89,7 @@
   const hasContractsToShow = computed(() => filteredContracts.value.length > 0);
 
   const handleContractChange = async (id: number) => {
-    console.log("contract change", id);
+    console.log("contract change@", id);
     try {
       isLoading.value = true;
       error.value = null;
