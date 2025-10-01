@@ -16,11 +16,11 @@ export const useUserData = () => {
       }
 
       const result = await callApi("/user/me", { headers });
-      console.log("result###", result);
+      console.log("result##", result);
 
       if (result && "payload" in result && result.payload) {
         userStore.setUser(result.payload);
-        console.log("user!!!.payload", result.payload);
+        console.log("user!!.payload", result.payload);
         return result.payload;
       }
 

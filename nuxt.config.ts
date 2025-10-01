@@ -18,6 +18,7 @@ export default defineNuxtConfig({
   ssr: false,
 
   nitro: {
+    preset: "static",
     devProxy: IS_DEV
       ? {
           "/api/v1": {
@@ -31,7 +32,7 @@ export default defineNuxtConfig({
 
     routeRules: {
       "/**": {
-        cors: true,
+        prerender: false,
         headers: {
           "Access-Control-Allow-Origin": "*",
           "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
