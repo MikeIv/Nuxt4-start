@@ -78,15 +78,11 @@
     }
   };
 
-  const filteredContracts = computed(() => {
-    return (
-      userStore.user?.contracts?.filter(
-        (contract) => contract.id !== userStore.user?.id,
-      ) ?? []
-    );
-  });
+  const contracts = computed(() => userStore.user?.contracts ?? []);
 
-  const hasContractsToShow = computed(() => filteredContracts.value.length > 0);
+  const hasContractsToShow = computed(() => contracts.value.length > 0);
+
+  const activeContractId = computed(() => userStore.user?.id ?? null);
 
   const handleContractChange = async (id: number) => {
     console.log("contract change@", id);
@@ -146,7 +142,8 @@
         <ModuleContractPopover
           :is-loading="isLoading"
           :has-contracts-to-show="hasContractsToShow"
-          :filtered-contracts="filteredContracts"
+          :contracts="contracts"
+          :active-contract-id="activeContractId"
           @change="handleContractChange"
         />
       </div>

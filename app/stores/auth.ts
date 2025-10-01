@@ -20,6 +20,7 @@ export const useAuthStore = defineStore("auth", () => {
   const refreshInterval = ref<NodeJS.Timeout | null>(null);
   const config = useRuntimeConfig();
   const router = useRouter();
+  const contractId = ref<number | null>(null);
 
   const setToken = (accessToken: string, refreshToken?: string) => {
     token.value = accessToken;
@@ -201,5 +202,6 @@ export const useAuthStore = defineStore("auth", () => {
     logOut,
     refreshToken,
     setToken,
+    contractId,
   };
 });

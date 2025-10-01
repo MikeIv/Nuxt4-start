@@ -1,11 +1,13 @@
 export function useDownloadReport() {
   const downloadingReport = ref(false);
+  const downloadingId = ref<string | number | null>(null);
   const error = ref<string | null>(null);
   const authStore = useAuthStore();
   const config = useRuntimeConfig();
 
   async function downloadReport(id: string | number) {
     downloadingReport.value = true;
+    downloadingId.value = id;
     error.value = null;
 
     try {
@@ -47,21 +49,27 @@ export function useDownloadReport() {
         document.body.removeChild(link);
         window.URL.revokeObjectURL(url);
       }, 100);
-    } catch (err) {
-      error.value = err?.message || "Ошибка при скачивании отчета";
-      console.error("Download error:", {
-        error: err,
-        message: err?.message,
-        status: err?.status,
-      });
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        error.value = err.message;
+        console.error("Download error:", {
+          error: err,
+          message: err.message,
+        });
+      } else {
+        error.value = "Ошибка при скачивании отчета";
+        console.error("Download error:", err);
+      }
       throw err;
     } finally {
       downloadingReport.value = false;
+      downloadingId.value = null;
     }
   }
 
   return {
     downloadingReport,
+    downloadingId,
     error,
     downloadReport,
   };
