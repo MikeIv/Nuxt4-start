@@ -43,6 +43,10 @@ export default defineNuxtConfig({
     minify: !IS_DEV,
   },
 
+  experimental: {
+    payloadExtraction: false,
+  },
+
   devtools: {
     enabled: IS_DEV,
   },
