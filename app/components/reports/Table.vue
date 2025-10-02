@@ -138,7 +138,7 @@
     deleteAllSelectedReports,
     isDeleting,
     deletedRows,
-    deletingReports,
+    // deletingReports,
     currentPageRef,
   } = useReportsModals(
     localReports,
@@ -172,7 +172,7 @@
       : undefined,
     selectedReports,
     isDeleting,
-    deletingReports,
+    // deletingReports,
     statusColors,
     downloadingId: downloadingIdNumber,
     downloadReport,

@@ -1,6 +1,6 @@
 <script setup lang="ts">
-  import { useStepOneStore } from "~/stores/stepOne";
-  import { useStepTwoStore } from "~/stores/stepTwo";
+  // import { useStepOneStore } from "~/stores/stepOne";
+  // import { useStepTwoStore } from "~/stores/stepTwo";
   import { useStepThreeStore } from "~/stores/stepThree";
 
   const handleBack = () => {
@@ -25,8 +25,8 @@
   const refundsTableRef = ref();
   const otherAmountsTableRef = ref();
 
-  const stepOneStore = useStepOneStore();
-  const stepTwoStore = useStepTwoStore();
+  // const stepOneStore = useStepOneStore();
+  // const stepTwoStore = useStepTwoStore();
   const stepThreeStore = useStepThreeStore();
 
   const isDataChanged = ref(false);
@@ -153,41 +153,41 @@
     { immediate: true },
   );
 
-  const { isSaving, saveReport, updateStores } = useSaveReport({
-    tableRefs: {
-      refunds: refundsTableRef,
-      otherAmounts: otherAmountsTableRef,
-    },
-    stepOneStore,
-    stepTwoStore,
-    store: stepThreeStore,
-    loadReport,
-    stepType: "stepThree",
-  });
+  // const { saveReport, updateStores } = useSaveReport({
+  //   tableRefs: {
+  //     refunds: refundsTableRef,
+  //     otherAmounts: otherAmountsTableRef,
+  //   },
+  //   stepOneStore,
+  //   stepTwoStore,
+  //   store: stepThreeStore,
+  //   loadReport,
+  //   stepType: "stepThree",
+  // });
 
   const saveSuccess = ref(false);
   const saveSuccessMessage = ref("");
 
-  const saveData = async () => {
-    const saved = await saveReport("Draft");
-    if (saved) {
-      const tablesData = {
-        refunds: refundsTableRef.value?.getTableData(),
-        otherAmounts: otherAmountsTableRef.value?.getTableData(),
-      };
-      updateStores(tablesData);
+  // const saveData = async () => {
+  //   const saved = await saveReport("Draft");
+  //   if (saved) {
+  //     const tablesData = {
+  //       refunds: refundsTableRef.value?.getTableData(),
+  //       otherAmounts: otherAmountsTableRef.value?.getTableData(),
+  //     };
+  //     updateStores(tablesData);
 
-      saveSuccess.value = true;
-      saveSuccessMessage.value = "Данные успешно сохранены как черновик";
+  //     saveSuccess.value = true;
+  //     saveSuccessMessage.value = "Данные успешно сохранены как черновик";
 
-      isDataChanged.value = false;
+  //     isDataChanged.value = false;
 
-      setTimeout(() => {
-        saveSuccess.value = false;
-        saveSuccessMessage.value = "";
-      }, 3000);
-    }
-  };
+  //     setTimeout(() => {
+  //       saveSuccess.value = false;
+  //       saveSuccessMessage.value = "";
+  //     }, 3000);
+  //   }
+  // };
 
   const validateAndNext = () => {
     const tablesData = {
@@ -335,14 +335,14 @@
       </template>
       <template #action>
         <UTooltip :text="!isFormValid && !isDataChanged ? validationError : ''">
-          <UButton
+          <!-- <UButton
             class="steps-nav-btn ghost"
             :loading="isSaving"
             :disabled="!isDataChanged || !isFormValid"
             @click="saveData"
           >
             Сохранить как черновик
-          </UButton>
+          </UButton> -->
         </UTooltip>
 
         <transition

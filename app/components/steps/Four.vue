@@ -3,7 +3,7 @@
   import { useStepTwoStore } from "~/stores/stepTwo";
   import { useStepThreeStore } from "~/stores/stepThree";
   import { useStepFourStore } from "~/stores/stepFour";
-  import { useToast, onBeforeRouteLeave } from "#imports";
+  import { onBeforeRouteLeave } from "#imports";
 
   onBeforeRouteLeave(() => {
     if (shouldResetOnLeave.value) {
@@ -20,58 +20,58 @@
   const stepThreeStore = useStepThreeStore();
   const stepFourStore = useStepFourStore();
 
-  const tableRef = ref();
+  // const tableRef = ref();
 
-  const isSavingDraft = ref(false);
+  // const isSavingDraft = ref(false);
   const saveSuccess = ref(false);
   const saveSuccessMessage = ref("");
 
-  const saveDraft = async () => {
-    isSavingDraft.value = true;
-    try {
-      const draft = {
-        status: "Draft",
-        report: {
-          visitors_count: stepOneStore.visitorsCount || 0,
-          receipts_count: stepOneStore.checksCount || 0,
-          period: {
-            start: stepOneStore.dateRange?.[0] || new Date().toISOString(),
-            end: stepOneStore.dateRange?.[1] || new Date().toISOString(),
-          },
-          kkts: stepTwoStore.kkt?.rows || [],
-          cash_turnovers_without_kkt: stepTwoStore.cashKkt?.rows || [],
-          cash_turnovers_non_cash: stepTwoStore.nonCash?.rows || [],
-          cash_turnovers_other: stepTwoStore.otherSum?.rows || [],
-          kkts_exclusions: stepThreeStore.refunds?.rows || [],
-          cash_turnover_exclusions_other:
-            stepThreeStore.otherAmounts?.rows || [],
-          turnover_calculation: tableRef.value?.getTableData()?.rows || [],
-        },
-      };
+  // const saveDraft = async () => {
+  //   isSavingDraft.value = true;
+  //   try {
+  //     const draft = {
+  //       status: "Draft",
+  //       report: {
+  //         visitors_count: stepOneStore.visitorsCount || 0,
+  //         receipts_count: stepOneStore.checksCount || 0,
+  //         period: {
+  //           start: stepOneStore.dateRange?.[0] || new Date().toISOString(),
+  //           end: stepOneStore.dateRange?.[1] || new Date().toISOString(),
+  //         },
+  //         kkts: stepTwoStore.kkt?.rows || [],
+  //         cash_turnovers_without_kkt: stepTwoStore.cashKkt?.rows || [],
+  //         cash_turnovers_non_cash: stepTwoStore.nonCash?.rows || [],
+  //         cash_turnovers_other: stepTwoStore.otherSum?.rows || [],
+  //         kkts_exclusions: stepThreeStore.refunds?.rows || [],
+  //         cash_turnover_exclusions_other:
+  //           stepThreeStore.otherAmounts?.rows || [],
+  //         turnover_calculation: tableRef.value?.getTableData()?.rows || [],
+  //       },
+  //     };
 
-      await loadReport("/tenants/reports", {
-        method: "POST",
-        body: draft,
-      });
+  //     await loadReport("/tenants/reports", {
+  //       method: "POST",
+  //       body: draft,
+  //     });
 
-      saveSuccess.value = true;
-      saveSuccessMessage.value = "Данные успешно сохранены в черновик";
+  //     saveSuccess.value = true;
+  //     saveSuccessMessage.value = "Данные успешно сохранены в черновик";
 
-      setTimeout(() => {
-        saveSuccess.value = false;
-        saveSuccessMessage.value = "";
-      }, 3000);
-    } catch (err) {
-      console.error("Ошибка сохранения черновика:", err);
-      useToast().add({
-        title: "Ошибка",
-        description: "Не удалось сохранить черновик",
-        color: "red",
-      });
-    } finally {
-      isSavingDraft.value = false;
-    }
-  };
+  //     setTimeout(() => {
+  //       saveSuccess.value = false;
+  //       saveSuccessMessage.value = "";
+  //     }, 3000);
+  //   } catch (err) {
+  //     console.error("Ошибка сохранения черновика:", err);
+  //     useToast().add({
+  //       title: "Ошибка",
+  //       description: "Не удалось сохранить черновик",
+  //       color: "red",
+  //     });
+  //   } finally {
+  //     isSavingDraft.value = false;
+  //   }
+  // };
 
   const handleBack = () => {
     console.log("Back");
@@ -286,14 +286,14 @@
         </UButton>
       </template>
       <template #action>
-        <UButton
+        <!-- <UButton
           class="steps-nav-btn ghost"
           :loading="isSavingDraft"
           :disabled="reportSaved"
           @click="saveDraft"
         >
           Сохранить как черновик
-        </UButton>
+        </UButton> -->
 
         <transition
           enter-active-class="transition-opacity duration-300"

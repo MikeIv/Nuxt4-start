@@ -60,7 +60,7 @@
     { immediate: true },
   );
 
-  const { isSaving, saveReport, updateStores } = useSaveReport({
+  const { updateStores } = useSaveReport({
     tableRefs: {
       kkt: kktTableRef,
       cashKkt: cashKktTableRef,
@@ -98,12 +98,12 @@
 
       if (stepOneStore.dateRange?.[0]) {
         const startDate = new Date(stepOneStore.dateRange[0]);
-        params.start = formatDate(startDate);
+        params.period_start = formatDate(startDate);
       }
 
       if (stepOneStore.dateRange?.[1]) {
         const endDate = new Date(stepOneStore.dateRange[1]);
-        params.end = formatDate(endDate);
+        params.period_end = formatDate(endDate);
       }
 
       console.log("Request params:", params);
@@ -149,26 +149,26 @@
   const saveSuccess = ref(false);
   const saveSuccessMessage = ref("");
 
-  const saveData = async () => {
-    const saved = await saveReport("Draft");
-    if (saved) {
-      const tablesData = {
-        kkt: kktTableRef.value?.getTableData(),
-        cashKkt: cashKktTableRef.value?.getTableData(),
-        nonCash: nonCashTableRef.value?.getTableData(),
-        otherSum: otherSumTableRef.value?.getTableData(),
-      };
-      updateStores(tablesData);
+  // const saveData = async () => {
+  //   const saved = await saveReport("Draft");
+  //   if (saved) {
+  //     const tablesData = {
+  //       kkt: kktTableRef.value?.getTableData(),
+  //       cashKkt: cashKktTableRef.value?.getTableData(),
+  //       nonCash: nonCashTableRef.value?.getTableData(),
+  //       otherSum: otherSumTableRef.value?.getTableData(),
+  //     };
+  //     updateStores(tablesData);
 
-      saveSuccess.value = true;
-      saveSuccessMessage.value = "Данные успешно сохранены как черновик";
+  //     saveSuccess.value = true;
+  //     saveSuccessMessage.value = "Данные успешно сохранены как черновик";
 
-      setTimeout(() => {
-        saveSuccess.value = false;
-        saveSuccessMessage.value = "";
-      }, 3000);
-    }
-  };
+  //     setTimeout(() => {
+  //       saveSuccess.value = false;
+  //       saveSuccessMessage.value = "";
+  //     }, 3000);
+  //   }
+  // };
 
   const isDataChanged = ref(false);
 
@@ -361,14 +361,14 @@
       </template>
       <template #action>
         <UTooltip :text="!isFormValid && !isDataChanged ? validationError : ''">
-          <UButton
+          <!-- <UButton
             class="steps-nav-btn ghost"
             :loading="isSaving"
             :disabled="!isDataChanged || !isFormValid"
             @click="saveData"
           >
             Сохранить как черновик
-          </UButton>
+          </UButton> -->
         </UTooltip>
       </template>
       <template #next>
