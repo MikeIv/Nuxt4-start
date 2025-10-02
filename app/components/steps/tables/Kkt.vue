@@ -92,9 +92,8 @@
       newRow.name = `Касса1`;
       editableRows.value = [newRow];
       addedRowsIndices.value = [0];
+      showRemoveButton.value = false;
     }
-
-    showRemoveButton.value = addedRowsIndices.value.length > 0;
   };
 
   onMounted(() => {
