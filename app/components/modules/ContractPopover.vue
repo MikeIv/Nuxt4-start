@@ -7,16 +7,30 @@
     name?: string;
   }
 
-  defineProps({
-    isLoading: { type: Boolean, default: false },
-    hasContractsToShow: { type: Boolean, default: false },
-    filteredContracts: {
-      type: Array as PropType<Contract[]>,
-      default: () => [],
-    },
-  });
+  const { isLoading, hasContractsToShow, contracts, activeContractId } =
+    defineProps({
+      isLoading: { type: Boolean, default: false },
+      hasContractsToShow: { type: Boolean, default: false },
+      contracts: {
+        type: Array as PropType<Contract[]>,
+        default: () => [],
+      },
+      activeContractId: {
+        type: Number as PropType<number | null>,
+        default: null,
+      },
+    });
 
   const emit = defineEmits(["change"]);
+
+  // Выводим активный договор первым
+  const sortedContracts = computed(() => {
+    if (!activeContractId) return contracts;
+    return [
+      ...contracts.filter((c) => c.id === activeContractId),
+      ...contracts.filter((c) => c.id !== activeContractId),
+    ];
+  });
 
   const handleContractChange = (contractId: number, close: () => void) => {
     emit("change", contractId);
@@ -37,12 +51,13 @@
     <PopoverPanel v-if="hasContractsToShow" :class="$style.popoverBlock">
       <ul :class="$style.switchList">
         <li
-          v-for="contract in filteredContracts"
+          v-for="contract in sortedContracts"
           :key="contract.id"
           :class="[
-            filteredContracts.length === 1
+            sortedContracts.length === 1
               ? $style.switchItemOne
               : $style.switchItem,
+            contract.id === activeContractId ? $style.activeSwitchItem : '',
           ]"
           @click="() => handleContractChange(contract.id, close)"
         >
@@ -163,5 +178,11 @@
     &:hover {
       background-color: var(--a-bgAccentLight);
     }
+  }
+
+  .activeSwitchItem {
+    background-color: var(--a-bgGray);
+    border-radius: rem(8) rem(8) 0 0;
+    pointer-events: none;
   }
 </style>
