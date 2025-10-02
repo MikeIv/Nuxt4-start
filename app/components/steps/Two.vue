@@ -98,12 +98,12 @@
 
       if (stepOneStore.dateRange?.[0]) {
         const startDate = new Date(stepOneStore.dateRange[0]);
-        params.start = formatDate(startDate);
+        params.period_start = formatDate(startDate);
       }
 
       if (stepOneStore.dateRange?.[1]) {
         const endDate = new Date(stepOneStore.dateRange[1]);
-        params.end = formatDate(endDate);
+        params.period_end = formatDate(endDate);
       }
 
       console.log("Request params:", params);
