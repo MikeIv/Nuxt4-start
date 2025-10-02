@@ -1,3 +1,4 @@
+// app/composables/archive/useReports.ts
 import { ref } from "vue";
 import { useApi } from "~/composables/useApi";
 import type { ReportApiResponse } from "~/types";
@@ -13,17 +14,33 @@ export const useReports = () => {
     error,
   } = useApi<ReportApiResponse>();
 
+  const getContractIdHeaders = () => {
+    const userStore = useUserStore();
+    const contractId = userStore.user?.id;
+
+    if (!contractId) {
+      console.warn("Contract ID not available");
+      return {};
+    }
+
+    return {
+      "Contract-id": contractId.toString(),
+    };
+  };
+
   const fetchReports = async (page = 1, perPageParam?: number) => {
+    const headers = getContractIdHeaders();
+
     if (!apiResponse.value) {
-      // Первая загрузка
       await loadReports(
         `/tenants/reports?page=${page}&perPage=${perPageParam ?? perPage.value}`,
+        { headers },
       );
     } else {
-      // Обновление
       isRefreshing.value = true;
       await loadReports(
         `/tenants/reports?page=${page}&perPage=${perPageParam ?? perPage.value}`,
+        { headers },
       );
       isRefreshing.value = false;
     }
@@ -43,7 +60,6 @@ export const useReports = () => {
     await fetchReports(1, perPageParam);
   };
 
-  // initial load
   const init = async () => {
     await fetchReports();
   };
