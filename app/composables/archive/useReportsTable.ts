@@ -37,7 +37,7 @@ interface UseReportsTableParams {
   }>;
   selectedReports: Ref<Set<number>>;
   isDeleting: Ref<boolean>;
-  deletingReports: Ref<Set<number>>;
+  // deletingReports: Ref<Set<number>>;
   statusColors: Record<string, string>;
   downloadingId: Ref<number | null>;
   downloadReport: (id: number) => Promise<void>;
@@ -54,7 +54,7 @@ export function useReportsTable({
   pagination,
   selectedReports,
   isDeleting,
-  deletingReports,
+  // deletingReports,
   statusColors,
   downloadingId,
   downloadReport,
@@ -78,31 +78,38 @@ export function useReportsTable({
     });
   });
 
+  const sortedHeaders = computed(() => {
+    return headers.filter(
+      (header) =>
+        header.key !== "can_edit" && header.key !== "can_request_correction",
+    );
+  });
+
   const columns = computed(() => {
-    const selectColumn = {
-      id: "select",
-      size: 60,
-      header: () => h("div", { class: $style.headerLabel }, ""),
-      cell: ({ row }: { row: { original: Report; index: number } }) => {
-        const report = row.original;
-        if (report.status !== "Draft" || !report.can_edit) return null;
+    // const selectColumn = {
+    //   id: "select",
+    //   size: 60,
+    //   header: () => h("div", { class: $style.headerLabel }, ""),
+    //   cell: ({ row }: { row: { original: Report; index: number } }) => {
+    //     const report = row.original;
+    //     if (report.status !== "Draft" || !report.can_edit) return null;
 
-        return h("input", {
-          type: "checkbox",
-          checked: selectedReports.value.has(report.id),
-          disabled: isDeleting.value || deletingReports.value.has(report.id),
-          onChange: () => {
-            if (selectedReports.value.has(report.id))
-              selectedReports.value.delete(report.id);
-            else selectedReports.value.add(report.id);
-          },
-          class: $style.rowCheckbox,
-          title: "Выбрать черновик",
-        });
-      },
-    };
+    //     return h("input", {
+    //       type: "checkbox",
+    //       checked: selectedReports.value.has(report.id),
+    //       disabled: isDeleting.value || deletingReports.value.has(report.id),
+    //       onChange: () => {
+    //         if (selectedReports.value.has(report.id))
+    //           selectedReports.value.delete(report.id);
+    //         else selectedReports.value.add(report.id);
+    //       },
+    //       class: $style.rowCheckbox,
+    //       title: "Выбрать черновик",
+    //     });
+    //   },
+    // };
 
-    const otherColumns = headers.map((header) => {
+    const otherColumns = sortedHeaders.value.map((header) => {
       const baseColumn = {
         accessorKey: header.key,
         header: header.label,
@@ -290,7 +297,7 @@ export function useReportsTable({
       }
     });
 
-    return [selectColumn, ...otherColumns];
+    return [...otherColumns];
   });
 
   const table = useVueTable({
