@@ -88,10 +88,12 @@
           row.advance_without_certificates_nds || "",
       }));
     } else {
-      editableRows.value = [createEmptyRow()];
+      const newRow = createEmptyRow();
+      newRow.name = `Касса1`;
+      editableRows.value = [newRow];
+      addedRowsIndices.value = [0];
     }
 
-    addedRowsIndices.value = [...(props.initialAddedRowsIndices || [])];
     showRemoveButton.value = addedRowsIndices.value.length > 0;
   };
 
