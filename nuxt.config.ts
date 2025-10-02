@@ -15,15 +15,15 @@ export default defineNuxtConfig({
     },
   },
 
-  // ssr: false,
+  ssr: false,
 
   nitro: {
     static: true,
 
-    prerender: {
-      routes: ["/"],
-      crawlLinks: false,
-    },
+    // prerender: {
+    //   routes: ["/"],
+    //   crawlLinks: false,
+    // },
 
     devProxy: IS_DEV
       ? {

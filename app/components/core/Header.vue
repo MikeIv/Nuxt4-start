@@ -159,12 +159,13 @@
       {{ error }}
     </div>
 
-    <div v-if="isLoading" :class="$style.loading">Загрузка данных...</div>
+    <!--    <div v-if="isLoading" :class="$style.loading">Загрузка данных...</div>-->
   </section>
 </template>
 
 <style module lang="scss">
   .header {
+    position: relative;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
@@ -221,6 +222,11 @@
   }
 
   .loading {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
     padding: rem(10) rem(20);
     color: var(--a-info);
     background-color: var(--a-infoBg);
