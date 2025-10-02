@@ -29,6 +29,8 @@
   const isError = ref(false);
   const invalidFields = ref<Record<string, boolean>>({});
 
+  console.log("allTables", allTables.value);
+
   const hasChanges = computed(() => {
     if (kktData.value && allTables.value.length !== kktData.value.length) {
       return true;
