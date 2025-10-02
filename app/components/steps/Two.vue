@@ -349,7 +349,7 @@
             :initial-data="tableOtherSum?.body"
             :loading="isLoading"
             :error="error"
-            @change="handleTableChange('')"
+            @change="handleTableChange('otherSum')"
           />
         </div>
       </section>
