@@ -7,7 +7,8 @@
 
   const dateRangeRef = computed(() => stepOne.dateRange);
 
-  const { isCheckingPeriod, periodExists } = usePeriodCheck(dateRangeRef);
+  const { isCheckingPeriod, periodExists, checkPeriodExists } =
+    usePeriodCheck(dateRangeRef);
 
   const isFormValid = computed(() => {
     return (
@@ -18,7 +19,11 @@
     );
   });
 
-  const validateAndNext = () => {
+  const validateAndNext = async () => {
+    if (stepOne.dateRange?.length === 2) {
+      await checkPeriodExists();
+    }
+
     if (!isFormValid.value) {
       console.log("Form is not valid");
       return;
