@@ -12,17 +12,17 @@
     isCustom?: boolean;
   }
 
+  const userStore = useUserStore();
+
+  const contractId = computed(() => userStore.user?.id || null);
+
   const {
     callApi: loadKktData,
     data: kktData,
     isLoading: kktLoading,
   } = useApi<Cashier[]>();
 
-  const {
-    callApi: saveKktData,
-    isLoading: isSaving,
-    fullResponse: saveResponse,
-  } = useApi();
+  const { callApi: saveKktData, isLoading: isSaving } = useApi();
 
   const allTables = ref<Cashier[]>([]);
   const saveMessage = ref("");
@@ -40,6 +40,38 @@
   });
 
   const { setupGuard } = useUnsavedChangesGuard(hasChanges);
+
+  const loadCashiersData = async () => {
+    if (!contractId.value) {
+      console.error("Contract ID not available");
+      showMessage("Ошибка: ID договора не найден", true);
+      return;
+    }
+
+    const headers = {
+      "Contract-id": contractId.value.toString(),
+    };
+
+    await loadKktData("/tenants/kkts", { headers });
+  };
+
+  const saveCashiersData = async (formattedData: unknown) => {
+    if (!contractId.value) {
+      console.error("Contract ID not available");
+      showMessage("Ошибка: ID договора не найден", true);
+      return null;
+    }
+
+    const headers = {
+      "Contract-id": contractId.value.toString(),
+    };
+
+    return await saveKktData("/tenants/kkts", {
+      method: "POST",
+      body: formattedData,
+      headers,
+    });
+  };
 
   const addBlock = () => {
     const blockNumber = allTables.value.length + 1;
@@ -158,13 +190,16 @@
         return isNaN(d.getTime()) ? null : d.toISOString().split("T")[0];
       }
 
-      await saveKktData("/tenants/kkts", {
-        method: "POST",
-        body: formattedData,
-      });
+      const result = await saveCashiersData(formattedData);
 
-      if (!saveResponse.value || saveResponse.value.success !== true) {
-        const errorMsg = saveResponse.value?.message || "Ошибка при сохранении";
+      if (
+        !result ||
+        (result && "success" in result && result.success !== true)
+      ) {
+        const errorMsg =
+          result && "message" in result
+            ? result.message
+            : "Ошибка при сохранении";
         showMessage(errorMsg, true);
         return;
       }
@@ -175,9 +210,13 @@
         isCustom: false,
       }));
 
-      showMessage(saveResponse.value.message || "Данные успешно сохранены");
+      const successMessage =
+        result && "message" in result
+          ? result.message
+          : "Данные успешно сохранены";
+      showMessage(successMessage);
 
-      await loadKktData("/tenants/kkts");
+      await loadCashiersData();
       if (kktData.value) {
         allTables.value = kktData.value.map((table, index) => ({
           ...table,
@@ -203,7 +242,7 @@
     }
 
     try {
-      await loadKktData("/tenants/kkts");
+      await loadCashiersData();
       if (kktData.value) {
         allTables.value = kktData.value.map((table) => ({
           ...table,
@@ -251,7 +290,7 @@
 
   onMounted(async () => {
     try {
-      await loadKktData("/tenants/kkts");
+      await loadCashiersData();
       if (kktData.value) {
         allTables.value = kktData.value.map((table) => ({
           ...table,
