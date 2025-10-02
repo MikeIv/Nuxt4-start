@@ -25,6 +25,7 @@ deploy develop:
     name: dev
     url: https://lk-schelkovsky.grandfs-develop.ru/
   script:
+    - rm -rf /var/www/shelkovskiy/lk-schelkovsky-n4/${CI_COMMIT_BRANCH}/.output
     - cp -rf .output /var/www/shelkovskiy/lk-schelkovsky-n4/${CI_COMMIT_BRANCH}
     - cd /var/www/shelkovskiy/lk-schelkovsky-n4/${CI_COMMIT_BRANCH}
     - git pull ${CI_REPOSITORY_URL} ${CI_COMMIT_BRANCH}
