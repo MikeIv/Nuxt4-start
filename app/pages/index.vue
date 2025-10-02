@@ -1,16 +1,17 @@
 <script setup lang="ts">
-  import { useUserStore } from "~/stores/userData";
-
   const userStore = useUserStore();
 
-  // Данные уже есть в сторе после авторизации
-  console.log("User INDEX:", userStore.user);
-
-  const { user, fetchUser, isLoading, error } = useUser();
-  const { callApi, data: kktData } = useApi<UserData>();
+  const { user, fetchUser, isLoading } = useUser();
 
   const saveMessage = ref("");
   const isError = ref(false);
+
+  const kktData = computed(
+    () =>
+      userStore.user?.kkts?.map((kktNumber) => ({
+        registration_number: kktNumber,
+      })) || [],
+  );
 
   const userFields = computed(() => [
     { label: "Юридическое лицо", value: userStore.user?.tenant_name },
@@ -24,7 +25,7 @@
     },
   ]);
 
-  console.log("userFields", userFields);
+  console.log("userFields", userFields.value);
 
   const showMessage = (message: string, error = false) => {
     saveMessage.value = message;
@@ -37,10 +38,9 @@
   onMounted(async () => {
     try {
       await fetchUser();
-      await callApi("/tenants/kkts");
     } catch (err) {
       console.log(err);
-      showMessage("Ошибка при загрузке данных ККТ", true);
+      showMessage("Ошибка при загрузке данных пользователя", true);
     }
   });
 </script>
@@ -67,18 +67,7 @@
         <span class="home-view__item-text">{{ field.value ?? "-" }}</span>
       </li>
 
-      <li v-if="isLoading" class="home-view__item">
-        <span class="home-view__item-text">Загрузка данных ККТ...</span>
-      </li>
-
-      <li v-else-if="error" class="home-view__item">
-        <span class="home-view__item-text text-error">
-          Ошибка загрузки данных ККТ
-          <button class="retry-button" @click="callApi">Повторить</button>
-        </span>
-      </li>
-
-      <template v-else-if="kktData?.length">
+      <template v-if="kktData.length">
         <li
           v-for="(kkt, index) in kktData"
           :key="`kkt-${index}`"
@@ -89,7 +78,7 @@
             Регистрационный номер ККТ {{ index + 1 }}
           </span>
           <span class="home-view__item-text">{{
-            kkt?.registration_number
+            kkt.registration_number
           }}</span>
         </li>
       </template>
@@ -121,13 +110,13 @@
       border-radius: rem(4);
 
       &.error {
-        background-color: #ffebee;
-        color: #d32f2f;
+        background-color: var(--a-mainBg);
+        color: var(--a-bgWarning);
       }
 
       &.success {
-        background-color: #e8f5e9;
-        color: #2e7d32;
+        background-color: var(--a-bgLight);
+        color: var(--a-successText);
       }
     }
 
@@ -142,7 +131,7 @@
       grid-template-columns: 1fr 1fr;
       min-height: rem(36);
       margin-bottom: rem(18);
-      border-bottom: 1px solid #d5c29a;
+      border-bottom: rem(1) solid var(--a-borderAccentLight);
 
       &-text {
         font-size: rem(18);
@@ -154,20 +143,20 @@
     }
 
     .text-error {
-      color: #d32f2f;
+      color: var(--a-bgWarning);
     }
 
     .retry-button {
       margin-left: rem(10);
       padding: rem(2) rem(8);
       background: #f5f5f5;
-      border: 1px solid #ddd;
+      border: rem(1) solid var(--a-borderAccentLight);
       border-radius: rem(4);
       cursor: pointer;
       font-size: rem(14);
 
       &:hover {
-        background: #e0e0e0;
+        background: var(--a-bgTable);
       }
     }
   }
