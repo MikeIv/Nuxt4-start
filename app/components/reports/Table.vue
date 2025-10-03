@@ -371,7 +371,7 @@
   .tableContainer {
     display: flex;
     flex-direction: column;
-    height: rem(700);
+    height: rem(680);
     overflow: hidden;
   }
 
@@ -410,6 +410,7 @@
     flex: 0;
     display: flex;
     align-items: center;
+    margin-top: auto;
   }
 
   .footer > div:first-child {
