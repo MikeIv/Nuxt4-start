@@ -68,6 +68,7 @@
       advance_without_certificates_nds: "",
       file_ids: [],
       files: [],
+      isNew: true,
     };
   }
 
@@ -86,7 +87,12 @@
           row.advance_without_certificates_with_nds || "",
         advance_without_certificates_nds:
           row.advance_without_certificates_nds || "",
+        isNew: false,
       }));
+      // Проверяем все номера ККТ на корректность
+      editableRows.value.forEach((_, index) => validateKktNumber(index));
+
+      addedRowsIndices.value = [];
     } else {
       const newRow = createEmptyRow();
       newRow.name = `Касса1`;
@@ -108,6 +114,14 @@
       showRemoveButton.value = addedRowsIndices.value.length > 0;
     },
     { deep: true },
+  );
+
+  watch(
+    editableRows,
+    (rows) => {
+      rows.forEach((_, index) => validateKktNumber(index));
+    },
+    { deep: true, immediate: true },
   );
 
   const addRow = (): void => {
@@ -237,7 +251,7 @@
           inputmode="numeric"
           pattern="[0-9]*"
           required
-          :disabled="!addedRowsIndices.includes(index)"
+          :disabled="!row.isNew"
           class="kkt-table__input-reg-number"
           :class="[
             {
@@ -251,13 +265,9 @@
                 addedRowsIndices.includes(index),
             },
           ]"
-          @input="
-            addedRowsIndices.includes(index) && handleKktInput($event, index)
-          "
-          @blur="addedRowsIndices.includes(index) && validateKktNumber(index)"
-          @keypress="
-            addedRowsIndices.includes(index) && preventNonNumericInput($event)
-          "
+          @input="row.isNew && handleKktInput($event, index)"
+          @blur="validateKktNumber(index)"
+          @keypress="row.isNew && preventNonNumericInput($event)"
         />
         <div v-if="shouldShowErrorKkt(index)" :class="$style.errorMessage">
           {{ kktErrors[index] }}
