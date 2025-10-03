@@ -26,7 +26,7 @@
   interface Props {
     headers: TableHeader[];
     reports: Report[];
-    pagination?: {
+    pagination: {
       currentPage: number;
       lastPage: number;
       perPage: number;
@@ -44,6 +44,8 @@
   const { downloadReport } = useDownloadReport();
 
   const props = defineProps<Props>();
+
+  const selectDisable = props.pagination.total <= 12;
 
   const localReports = ref<Report[]>([...props.reports]);
 
@@ -300,7 +302,11 @@
       <footer :class="$style.footer">
         <div :class="$style.perPageSelector">
           <label>Показывать отчеты:</label>
-          <select :value="perPageValue" @change="handlePerPageChange">
+          <select
+            :value="perPageValue"
+            :disabled="selectDisable"
+            @change="handlePerPageChange"
+          >
             <option value="12">12</option>
             <option value="25">25</option>
             <option value="50">50</option>
@@ -814,6 +820,11 @@
       border: 1px solid var(--a-borderAccent);
       border-radius: rem(4);
       cursor: pointer;
+
+      &:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
     }
   }
 

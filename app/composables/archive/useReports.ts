@@ -55,7 +55,7 @@ export const useReports = () => {
   };
 
   const handlePerPageChange = async (newPerPage: number | "all") => {
-    const perPageParam = newPerPage === "all" ? 10000 : newPerPage;
+    const perPageParam = newPerPage === "all" ? 1000 : newPerPage;
     perPage.value = perPageParam;
     await fetchReports(1, perPageParam);
   };
