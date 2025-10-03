@@ -290,9 +290,15 @@
       row.settlement_account_number.trim() !== "";
 
     if (isFirstFieldFilled) {
+      row.filesRequired = true;
       if (!row.amount_with_nds || row.amount_with_nds === "0,00") {
         if (!errors.includes("amount_with_nds")) errors.push("amount_with_nds");
       }
+      if (!row.amount_nds || row.amount_nds === "0,00") {
+        if (!errors.includes("amount_nds")) errors.push("amount_nds");
+      }
+    } else {
+      row.filesRequired = false;
     }
 
     invalidFields.value = {
@@ -353,6 +359,7 @@
     file_ids: [],
     files: [],
     isNew: true,
+    filesRequired: false,
   });
 
   const normalizeRowData = (row: CashTableRow): CashTableRow => {
@@ -575,7 +582,7 @@
           :max-files="3"
           :files="row.files || []"
           :file-ids="row.file_ids || []"
-          :is-required="hasAmountInRow(row, index)"
+          :is-required="row.filesRequired || hasAmountInRow(row, index)"
           :has-error="shouldShowError(index, 'files')"
           @files-uploaded="
             ({ filesData }) => handleFileUploaded({ index, filesData })
