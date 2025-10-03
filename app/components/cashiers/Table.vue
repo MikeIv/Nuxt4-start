@@ -384,6 +384,7 @@
   .editIcon {
     width: rem(24);
     height: rem(24);
+    color: var(--a-bgAccentDark);
   }
 
   .row {

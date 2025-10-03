@@ -239,7 +239,6 @@
   });
 
   const normalizeRowData = (row: OverSumTableRow): OverSumTableRow => {
-    const isApiData = !!(row.name && row.name.trim() !== "");
     return {
       ...createEmptyRow(),
       ...row,
@@ -251,7 +250,7 @@
         typeof row.amount_nds === "number"
           ? row.amount_nds.toFixed(2).replace(".", ",")
           : row.amount_nds || "0,00",
-      isNew: !isApiData,
+      isNew: row.isNew ?? !(row.name && row.name.trim() !== ""),
     };
   };
 
@@ -339,8 +338,18 @@
   };
 
   const finishNameEditing = (index: number) => {
-    editingNameIndex.value = null;
     validateRow(index);
+
+    const name = editableRows.value[index].name?.trim();
+    if (!name) {
+      // Если имя пустое — оставляем фокус на input
+      editingNameIndex.value = index;
+      nextTick(() => nameInputRefs.value[index]?.focus());
+    } else {
+      // Если имя введено — закрываем редактирование
+      editingNameIndex.value = null;
+    }
+
     emitUpdate();
   };
 
@@ -406,7 +415,7 @@
       </div>
 
       <div class="cell body-cell">
-        <template v-if="row.isNew || editingNameIndex === index">
+        <template v-if="row.isNew">
           <input
             :ref="(el) => (nameInputRefs[index] = el as HTMLInputElement)"
             type="text"
@@ -426,7 +435,7 @@
         </template>
         <template v-else>
           <span :class="$style.editable" @click="editingNameIndex = index">
-            {{ row?.name }}
+            {{ row?.name || " " }}
           </span>
         </template>
       </div>

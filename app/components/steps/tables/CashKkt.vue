@@ -211,7 +211,7 @@
       }
     }
 
-    const isNewlyAddedRow = addedRowsIndices.value.includes(index);
+    const isNewlyAddedRow = addedRowsIndices.value.includes(index) || row.isNew;
 
     if (isNewlyAddedRow) {
       // Для новых строк все поля обязательны
@@ -222,6 +222,9 @@
         errors.push("amount_with_nds");
       if (!amountNds || amountNds === "0,00") errors.push("amount_nds");
       if (!hasFileIds) errors.push("files");
+
+      // Сохраняем обязательность файлов для новых строк
+      row.filesRequired = true;
     } else {
       // Для существующих строк проверяем только измененные поля
       let hasNonEmptyModifiedField = false;
@@ -229,12 +232,10 @@
 
       if (modifiedFieldsForRow) {
         for (const field of modifiedFieldsForRow) {
-          if (field === "name" && name && name.trim() !== "")
-            hasNonEmptyModifiedField = true;
+          if (field === "name" && name?.trim()) hasNonEmptyModifiedField = true;
           if (
             field === "settlement_account_number" &&
-            settlementAccount &&
-            settlementAccount.trim() !== ""
+            settlementAccount?.trim()
           )
             hasNonEmptyModifiedField = true;
           if (
@@ -249,7 +250,6 @@
       }
 
       if (hasNonEmptyModifiedField) {
-        // Проверяем только те поля, которые были изменены
         if (
           modifiedFieldsForRow?.has("name") &&
           (!name || name.trim() === "")
@@ -275,13 +275,36 @@
           errors.push("amount_nds");
         }
         if (!hasFileIds) errors.push("files");
-      }
 
-      // Очищаем modifiedFields если нет непустых измененных полей
-      if (modifiedFieldsForRow && !hasNonEmptyModifiedField) {
-        const { [index]: _, ...rest } = modifiedFields.value;
-        modifiedFields.value = rest;
+        // Сохраняем обязательность файлов для существующих строк с изменениями
+        row.filesRequired = true;
+      } else {
+        // Если нет изменений — флаг файлов сохраняем как есть
+        row.filesRequired = row.filesRequired || false;
+
+        // Очищаем modifiedFields если нет непустых измененных полей
+        if (modifiedFieldsForRow) {
+          const { [index]: _, ...rest } = modifiedFields.value;
+          modifiedFields.value = rest;
+        }
       }
+    }
+    const isFirstFieldFilled =
+      row.name &&
+      row.name.trim() !== "" &&
+      row.settlement_account_number &&
+      row.settlement_account_number.trim() !== "";
+
+    if (isFirstFieldFilled) {
+      row.filesRequired = true;
+      if (!row.amount_with_nds || row.amount_with_nds === "0,00") {
+        if (!errors.includes("amount_with_nds")) errors.push("amount_with_nds");
+      }
+      if (!row.amount_nds || row.amount_nds === "0,00") {
+        if (!errors.includes("amount_nds")) errors.push("amount_nds");
+      }
+    } else {
+      row.filesRequired = false;
     }
 
     invalidFields.value = {
@@ -342,10 +365,10 @@
     file_ids: [],
     files: [],
     isNew: true,
+    filesRequired: false,
   });
 
   const normalizeRowData = (row: CashTableRow): CashTableRow => {
-    const isApiData = !!(row.name && row.name.trim() !== "");
     return {
       ...createEmptyRow(),
       ...row,
@@ -357,7 +380,12 @@
         typeof row.amount_nds === "number"
           ? row.amount_nds.toFixed(2).replace(".", ",")
           : row.amount_nds || "0,00",
-      isNew: !isApiData,
+      isNew: row.isNew ?? !(row.name && row.name.trim() !== ""),
+      hasAmount:
+        !!row.amount_with_nds ||
+        !!row.amount_nds ||
+        !!row.name?.trim() ||
+        !!row.settlement_account_number?.trim(),
     };
   };
 
@@ -485,7 +513,7 @@
         {{ index + 1 }}
       </div>
       <div class="cell body-cell">
-        <template v-if="row.isNew || editingNameIndex === index">
+        <template v-if="row.isNew">
           <input
             :ref="(el) => (nameInputRefs[index] = el as HTMLInputElement)"
             type="text"
@@ -565,7 +593,7 @@
           :max-files="3"
           :files="row.files || []"
           :file-ids="row.file_ids || []"
-          :is-required="hasAmountInRow(row, index)"
+          :is-required="row.filesRequired || hasAmountInRow(row, index)"
           :has-error="shouldShowError(index, 'files')"
           @files-uploaded="
             ({ filesData }) => handleFileUploaded({ index, filesData })

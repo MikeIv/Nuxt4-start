@@ -271,7 +271,6 @@
   });
 
   const normalizeRowData = (row: NonCashTableRow): NonCashTableRow => {
-    const isApiData = !!(row.name && row.name.trim() !== "");
     return {
       ...createEmptyRow(),
       ...row,
@@ -283,7 +282,7 @@
         typeof row.amount_nds === "number"
           ? row.amount_nds.toFixed(2).replace(".", ",")
           : row.amount_nds || "0,00",
-      isNew: !isApiData,
+      isNew: row.isNew ?? !(row.name && row.name.trim() !== ""),
     };
   };
 
@@ -347,7 +346,6 @@
   };
 
   const finishNameEditing = (index: number) => {
-    editingNameIndex.value = null;
     validateRow(index);
     emitUpdate();
   };
@@ -412,7 +410,7 @@
       </div>
 
       <div class="cell body-cell">
-        <template v-if="row.isNew || editingNameIndex === index">
+        <template v-if="row.isNew">
           <input
             :ref="(el) => (nameInputRefs[index] = el as HTMLInputElement)"
             type="text"
@@ -431,7 +429,7 @@
           />
         </template>
         <template v-else>
-          <span>{{ row.name }}</span>
+          <span>{{ row.name || " " }}</span>
         </template>
       </div>
 

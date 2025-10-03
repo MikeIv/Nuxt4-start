@@ -26,7 +26,7 @@
   interface Props {
     headers: TableHeader[];
     reports: Report[];
-    pagination?: {
+    pagination: {
       currentPage: number;
       lastPage: number;
       perPage: number;
@@ -41,13 +41,11 @@
     emit("perPageChange", value);
   };
 
-  const { downloadReport, downloadingId } = useDownloadReport();
-
-  const downloadingIdNumber = computed<number | null>(() =>
-    typeof downloadingId.value === "number" ? downloadingId.value : null,
-  );
+  const { downloadReport } = useDownloadReport();
 
   const props = defineProps<Props>();
+
+  const selectDisable = props.pagination.total <= 12;
 
   const localReports = ref<Report[]>([...props.reports]);
 
@@ -174,7 +172,6 @@
     isDeleting,
     // deletingReports,
     statusColors,
-    downloadingId: downloadingIdNumber,
     downloadReport,
     openCorrectionModal,
     confirmDeleteReport,
@@ -186,10 +183,7 @@
 
 <template>
   <div :key="pagination?.currentPage" :class="$style.tableContainer">
-    <div v-if="!headers || !reports" class="text-gray-500">
-      Нет данных для отображения
-    </div>
-    <template v-else>
+    <template v-if="props.reports.length">
       <div :class="$style.tableWrapper">
         <table :class="$style.reportsTable">
           <thead :class="$style.tableHeader">
@@ -305,66 +299,72 @@
           {{ isDeleting ? "Удаление..." : "Удалить все выбранные" }}
         </button>
       </div>
-    </template>
-
-    <footer :class="$style.footer">
-      <div :class="$style.perPageSelector">
-        <label>Показывать отчеты:</label>
-        <select :value="perPageValue" @change="handlePerPageChange">
-          <option value="12">12</option>
-          <option value="25">25</option>
-          <option value="50">50</option>
-          <option value="all">Все</option>
-        </select>
-      </div>
-      <div v-if="pagination" :class="$style.pagination">
-        <button
-          :class="[
-            $style.pageButton,
-            { [$style.disabled]: currentPageRef <= 1 },
-          ]"
-          :disabled="currentPageRef <= 1"
-          @click="handlePageChange(currentPageRef - 1)"
-        >
-          Назад
-        </button>
-
-        <div :class="$style.pageNumbers">
+      <footer :class="$style.footer">
+        <div :class="$style.perPageSelector">
+          <label>Показывать отчеты:</label>
+          <select
+            :value="perPageValue"
+            :disabled="selectDisable"
+            @change="handlePerPageChange"
+          >
+            <option value="12">12</option>
+            <option value="25">25</option>
+            <option value="50">50</option>
+            <option value="all">Все</option>
+          </select>
+        </div>
+        <div v-if="pagination" :class="$style.pagination">
           <button
-            v-for="page in visiblePages"
-            :key="page"
             :class="[
               $style.pageButton,
-              {
-                [$style.active]:
-                  page !== '...' && Number(page) === currentPageRef,
-                [$style.disabled]: page === '...',
-              },
+              { [$style.disabled]: currentPageRef <= 1 },
             ]"
-            @click="handlePageChange(page)"
+            :disabled="currentPageRef <= 1"
+            @click="handlePageChange(currentPageRef - 1)"
           >
-            {{ page }}
+            Назад
+          </button>
+
+          <div :class="$style.pageNumbers">
+            <button
+              v-for="page in visiblePages"
+              :key="page"
+              :class="[
+                $style.pageButton,
+                {
+                  [$style.active]:
+                    page !== '...' && Number(page) === currentPageRef,
+                  [$style.disabled]: page === '...',
+                },
+              ]"
+              @click="handlePageChange(page)"
+            >
+              {{ page }}
+            </button>
+          </div>
+
+          <button
+            :class="[
+              $style.pageButton,
+              { [$style.disabled]: currentPageRef >= pagination.lastPage },
+            ]"
+            :disabled="currentPageRef >= pagination.lastPage"
+            @click="handlePageChange(currentPageRef + 1)"
+          >
+            Вперед
           </button>
         </div>
-
-        <button
-          :class="[
-            $style.pageButton,
-            { [$style.disabled]: currentPageRef >= pagination.lastPage },
-          ]"
-          :disabled="currentPageRef >= pagination.lastPage"
-          @click="handlePageChange(currentPageRef + 1)"
-        >
-          Вперед
-        </button>
-      </div>
-      <div :class="$style.reportTotal">
-        <div>
-          <span :class="$style.title">Всего отчетов:</span>
-          <span :class="$style.data">{{ pagination?.total }}</span>
+        <div :class="$style.reportTotal">
+          <div>
+            <span :class="$style.title">Всего отчетов:</span>
+            <span :class="$style.data">{{ pagination?.total }}</span>
+          </div>
         </div>
-      </div>
-    </footer>
+      </footer>
+    </template>
+    <template v-else>
+      <div class="text-gray-500">Нет данных для отображения</div>
+    </template>
   </div>
 </template>
 
@@ -372,7 +372,7 @@
   .tableContainer {
     display: flex;
     flex-direction: column;
-    height: rem(700);
+    height: rem(680);
     overflow: hidden;
   }
 
@@ -411,6 +411,7 @@
     flex: 0;
     display: flex;
     align-items: center;
+    margin-top: auto;
   }
 
   .footer > div:first-child {
@@ -692,8 +693,8 @@
 
     &.spinnerDownloading {
       border-width: rem(2);
-      width: rem(18);
-      height: rem(18);
+      width: rem(15);
+      height: rem(15);
     }
   }
 
@@ -819,12 +820,26 @@
       border: 1px solid var(--a-borderAccent);
       border-radius: rem(4);
       cursor: pointer;
+
+      &:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
     }
+  }
+
+  .downloadButton {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: rem(10);
+    margin: auto;
+    cursor: pointer;
   }
 
   .downloadIcon {
     cursor: pointer;
-    width: rem(19);
+    width: rem(15);
     height: auto;
   }
 </style>
