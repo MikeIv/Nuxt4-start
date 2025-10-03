@@ -41,11 +41,7 @@
     emit("perPageChange", value);
   };
 
-  const { downloadReport, downloadingId } = useDownloadReport();
-
-  const downloadingIdNumber = computed<number | null>(() =>
-    typeof downloadingId.value === "number" ? downloadingId.value : null,
-  );
+  const { downloadReport } = useDownloadReport();
 
   const props = defineProps<Props>();
 
@@ -174,7 +170,6 @@
     isDeleting,
     // deletingReports,
     statusColors,
-    downloadingId: downloadingIdNumber,
     downloadReport,
     openCorrectionModal,
     confirmDeleteReport,
@@ -692,8 +687,8 @@
 
     &.spinnerDownloading {
       border-width: rem(2);
-      width: rem(18);
-      height: rem(18);
+      width: rem(15);
+      height: rem(15);
     }
   }
 
@@ -822,9 +817,18 @@
     }
   }
 
+  .downloadButton {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: rem(10);
+    margin: auto;
+    cursor: pointer;
+  }
+
   .downloadIcon {
     cursor: pointer;
-    width: rem(19);
+    width: rem(15);
     height: auto;
   }
 </style>

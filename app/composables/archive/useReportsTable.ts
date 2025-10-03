@@ -39,7 +39,6 @@ interface UseReportsTableParams {
   isDeleting: Ref<boolean>;
   // deletingReports: Ref<Set<number>>;
   statusColors: Record<string, string>;
-  downloadingId: Ref<number | null>;
   downloadReport: (id: number) => Promise<void>;
   openCorrectionModal: (id: number) => void;
   confirmDeleteReport: (id: number) => void;
@@ -56,7 +55,6 @@ export function useReportsTable({
   isDeleting,
   // deletingReports,
   statusColors,
-  downloadingId,
   downloadReport,
   openCorrectionModal,
   confirmDeleteReport,
@@ -84,6 +82,17 @@ export function useReportsTable({
         header.key !== "can_edit" && header.key !== "can_request_correction",
     );
   });
+
+  const downloadingReports = ref<Set<number>>(new Set());
+
+  const handleDownload = async (id: number) => {
+    downloadingReports.value.add(id);
+    try {
+      await downloadReport(id);
+    } finally {
+      downloadingReports.value.delete(id);
+    }
+  };
 
   const columns = computed(() => {
     // const selectColumn = {
@@ -250,26 +259,34 @@ export function useReportsTable({
         case "can_download_documents":
           return {
             ...baseColumn,
-            size: 120,
+            size: 140,
             cell: ({ row }: { row: { original: Report } }) => {
               const report = row.original;
               if (report.status === "Draft" || report.status === "Overdue")
                 return null;
-              const isDownloading = downloadingId.value === report.id;
+              const isDownloading = downloadingReports.value.has(report.id);
               return h(
                 "button",
                 {
                   disabled: isDownloading,
                   onClick: async (e) => {
                     e.stopPropagation();
-                    await downloadReport(report.id);
+                    handleDownload(report.id);
                   },
+                  class: $style.downloadButton,
                 },
-                isDownloading
-                  ? h("span", {
-                      class: [$style.spinner, $style.spinnerDownloading],
-                    })
-                  : h(IconDownload, { class: $style.downloadIcon }),
+                [
+                  h(
+                    "span",
+                    { class: $style.downloadText },
+                    isDownloading ? "Загружаем" : "Скачать отчет",
+                  ),
+                  isDownloading
+                    ? h("span", {
+                        class: [$style.spinner, $style.spinnerDownloading],
+                      })
+                    : h(IconDownload, { class: $style.downloadIcon }),
+                ],
               );
             },
           };
