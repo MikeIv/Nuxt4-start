@@ -50,7 +50,7 @@ interface UseReportsTableParams {
 export function useReportsTable({
   headers,
   reports,
-  pagination,
+  //pagination,
   selectedReports,
   isDeleting,
   // deletingReports,
@@ -137,10 +137,10 @@ export function useReportsTable({
             ...baseColumn,
             size: 60,
             cell: ({ row }: { row: { original: Report; index: number } }) => {
-              if (!pagination?.value) return row.index + 1;
-              const { currentPage, perPage } = pagination.value;
-              const number = (currentPage - 1) * perPage + row.index + 1;
-              return number < 10 ? `0${number}` : number;
+              // if (!pagination?.value) return row.index + 1;
+              // const { currentPage, perPage } = pagination.value;
+              // const number = (currentPage - 1) * perPage + row.index + 1;
+              return row.original.id;
             },
           };
         case "period":

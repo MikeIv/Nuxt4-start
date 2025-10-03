@@ -283,6 +283,17 @@
         modifiedFields.value = rest;
       }
     }
+    const isFirstFieldFilled =
+      row.name &&
+      row.name.trim() !== "" &&
+      row.settlement_account_number &&
+      row.settlement_account_number.trim() !== "";
+
+    if (isFirstFieldFilled) {
+      if (!row.amount_with_nds || row.amount_with_nds === "0,00") {
+        if (!errors.includes("amount_with_nds")) errors.push("amount_with_nds");
+      }
+    }
 
     invalidFields.value = {
       ...invalidFields.value,
