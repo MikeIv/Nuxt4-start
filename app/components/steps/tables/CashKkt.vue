@@ -211,7 +211,7 @@
       }
     }
 
-    const isNewlyAddedRow = addedRowsIndices.value.includes(index);
+    const isNewlyAddedRow = addedRowsIndices.value.includes(index) || row.isNew;
 
     if (isNewlyAddedRow) {
       // Для новых строк все поля обязательны
@@ -222,6 +222,9 @@
         errors.push("amount_with_nds");
       if (!amountNds || amountNds === "0,00") errors.push("amount_nds");
       if (!hasFileIds) errors.push("files");
+
+      // Сохраняем обязательность файлов для новых строк
+      row.filesRequired = true;
     } else {
       // Для существующих строк проверяем только измененные поля
       let hasNonEmptyModifiedField = false;
@@ -229,12 +232,10 @@
 
       if (modifiedFieldsForRow) {
         for (const field of modifiedFieldsForRow) {
-          if (field === "name" && name && name.trim() !== "")
-            hasNonEmptyModifiedField = true;
+          if (field === "name" && name?.trim()) hasNonEmptyModifiedField = true;
           if (
             field === "settlement_account_number" &&
-            settlementAccount &&
-            settlementAccount.trim() !== ""
+            settlementAccount?.trim()
           )
             hasNonEmptyModifiedField = true;
           if (
@@ -249,7 +250,6 @@
       }
 
       if (hasNonEmptyModifiedField) {
-        // Проверяем только те поля, которые были изменены
         if (
           modifiedFieldsForRow?.has("name") &&
           (!name || name.trim() === "")
@@ -275,12 +275,18 @@
           errors.push("amount_nds");
         }
         if (!hasFileIds) errors.push("files");
-      }
 
-      // Очищаем modifiedFields если нет непустых измененных полей
-      if (modifiedFieldsForRow && !hasNonEmptyModifiedField) {
-        const { [index]: _, ...rest } = modifiedFields.value;
-        modifiedFields.value = rest;
+        // Сохраняем обязательность файлов для существующих строк с изменениями
+        row.filesRequired = true;
+      } else {
+        // Если нет изменений — флаг файлов сохраняем как есть
+        row.filesRequired = row.filesRequired || false;
+
+        // Очищаем modifiedFields если нет непустых измененных полей
+        if (modifiedFieldsForRow) {
+          const { [index]: _, ...rest } = modifiedFields.value;
+          modifiedFields.value = rest;
+        }
       }
     }
     const isFirstFieldFilled =
@@ -375,6 +381,11 @@
           ? row.amount_nds.toFixed(2).replace(".", ",")
           : row.amount_nds || "0,00",
       isNew: row.isNew ?? !(row.name && row.name.trim() !== ""),
+      hasAmount:
+        !!row.amount_with_nds ||
+        !!row.amount_nds ||
+        !!row.name?.trim() ||
+        !!row.settlement_account_number?.trim(),
     };
   };
 
