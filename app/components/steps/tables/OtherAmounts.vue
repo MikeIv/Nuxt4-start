@@ -472,17 +472,21 @@
 
       <div class="cell body-cell">
         <StepsCoreFileUploader
-          :file="row.file"
-          :file-id="row.file_id"
+          :files="row.files || []"
+          :file-ids="row.file_ids || []"
           :index="index"
+          :multiple="true"
+          :max-files="10"
           prefix="other-amount-file"
           :loading="fileLoading"
           :is-required="isFileRequired(row, index)"
           :has-error="shouldShowError(index, 'file')"
-          @file-uploaded="
-            ({ fileData }) => handleFileUploaded({ index, filesData: fileData })
+          @files-uploaded="
+            ({ filesData }) => handleFileUploaded({ index, filesData })
           "
-          @file-removed="() => handleFileRemoved({ index })"
+          @file-removed="
+            ({ fileIndex }) => handleFileRemoved({ index, fileIndex })
+          "
         />
       </div>
     </template>
