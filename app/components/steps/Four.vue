@@ -240,10 +240,10 @@
               v-else-if="row.name === 'Процент с Денежного оборота, руб'"
             >
               <div :class="$style.tableCell">
-                {{ row.with_nds ? formatCurrency(row.with_nds) : "" }}
+                {{ row.with_nds ? formatCurrency(row.with_nds) : "0 ₽" }}
               </div>
               <div :class="$style.tableCell">
-                {{ row.without_nds ? formatCurrency(row.without_nds) : "" }}
+                {{ row.without_nds ? formatCurrency(row.without_nds) : "0 ₽" }}
               </div>
             </template>
             <template

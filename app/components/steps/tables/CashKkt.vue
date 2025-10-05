@@ -1,6 +1,8 @@
 <script setup lang="ts">
   import type { FileData, CashTableRow } from "~/types/tables";
 
+  const stepTwoStore = useStepTwoStore();
+
   const props = defineProps({
     headers: {
       type: Array,
@@ -320,6 +322,10 @@
     editableRows.value.push(newRow);
     const newIndex = editableRows.value.length - 1;
     addedRowsIndices.value.push(newIndex);
+
+    const tableKey = "cashKkt";
+    stepTwoStore.updateAddedRows(tableKey, [...addedRowsIndices.value]);
+
     showRemoveButton.value = true;
 
     editingNameIndex.value = newIndex;
@@ -354,6 +360,11 @@
       .filter((index) => index !== lastAddedIndex)
       .map((index) => (index > lastAddedIndex ? index - 1 : index));
 
+    // Обновляем стор
+    stepTwoStore.removeRowFromTable("cashKkt", lastAddedIndex);
+    const tableKey = "cashKkt";
+    stepTwoStore.updateAddedRows(tableKey, [...addedRowsIndices.value]);
+
     showRemoveButton.value = addedRowsIndices.value.length > 0;
     tableMessage.value = "Основание удалено";
     emitUpdate();
@@ -377,32 +388,20 @@
   watch(
     () => props.initialData,
     (newData) => {
-      if (!newData) return;
+      const normalized = (newData || []).map(normalizeRowData);
 
-      const normalized = newData.map(normalizeRowData);
+      // Восстанавливаем добавленные строки из Pinia
+      const storedAddedRows = stepTwoStore.addedCashKktRows;
+      addedRowsIndices.value = storedAddedRows?.length
+        ? [...storedAddedRows]
+        : [];
 
-      normalized.forEach((row, index) => {
-        const existing = editableRows.value[index];
+      // Показываем кнопку удалить, если есть добавленные строки
+      showRemoveButton.value = addedRowsIndices.value.length > 0;
 
-        // сохраняем обязательность и модифицированные поля
-        if (existing) {
-          row.filesRequired =
-            existing.filesRequired ?? row.file_ids?.length > 0;
-          if (modifiedFields.value[index]) {
-            modifiedFields.value[index] = new Set(modifiedFields.value[index]);
-          }
-        } else {
-          // новые строки с файлами или суммами — обязательны
-          row.filesRequired =
-            row.file_ids?.length > 0 ||
-            (row.amount_with_nds && row.amount_with_nds !== "0,00") ||
-            (row.amount_nds && row.amount_nds !== "0,00");
-        }
-      });
+      editableRows.value = normalized;
 
-      editableRows.value = normalized.length ? normalized : [createEmptyRow()];
-
-      // обновляем invalidFields для каждой строки сразу
+      // Валидируем строки
       editableRows.value.forEach((_, index) => validateRow(index));
     },
     { immediate: true },

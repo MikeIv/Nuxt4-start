@@ -1,6 +1,8 @@
 <script setup lang="ts">
   import type { FileData, OverSumTableRow } from "~/types/tables";
 
+  const stepTwoStore = useStepTwoStore();
+
   const props = defineProps({
     headers: {
       type: Array,
@@ -248,6 +250,10 @@
     editableRows.value.push(newRow);
     const newIndex = editableRows.value.length - 1;
     addedRowsIndices.value.push(newIndex);
+
+    const tableKey = "otherSum";
+    stepTwoStore.updateAddedRows(tableKey, [...addedRowsIndices.value]);
+
     showRemoveButton.value = true;
 
     editingNameIndex.value = newIndex;
@@ -306,6 +312,11 @@
     });
     modifiedFields.value = newModifiedFields;
 
+    // Обновляем стор
+    stepTwoStore.removeRowFromTable("otherSum", lastAddedIndex);
+    const tableKey = "otherSum";
+    stepTwoStore.updateAddedRows(tableKey, [...addedRowsIndices.value]);
+
     showRemoveButton.value = addedRowsIndices.value.length > 0;
     tableMessage.value = "Основание удалено";
     emitUpdate();
@@ -340,40 +351,25 @@
   watch(
     () => props.initialData,
     (newData) => {
-      if (!newData || newData.length === 0) return; // ничего не делаем, если данных нет
+      const normalized = (newData || []).map(normalizeRowData);
 
-      const normalized = newData.map(normalizeRowData);
+      // Восстанавливаем добавленные строки из Pinia
+      const storedAddedRows = stepTwoStore.addedOtherSumRows;
+      addedRowsIndices.value = storedAddedRows?.length
+        ? [...storedAddedRows]
+        : [];
 
-      normalized.forEach((row, index) => {
-        const existing = editableRows.value[index];
+      // Показываем кнопку удалить, если есть добавленные строки
+      showRemoveButton.value = addedRowsIndices.value.length > 0;
 
-        if (existing) {
-          // Сохраняем обязательность файлов и модифицированные поля
-          row.filesRequired =
-            existing.filesRequired ?? row.file_ids?.length > 0;
-          if (modifiedFields.value[index]) {
-            modifiedFields.value[index] = new Set(modifiedFields.value[index]);
-          }
-        } else {
-          // Новые строки с файлами, суммами или именем — обязательны
-          row.filesRequired =
-            row.file_ids?.length > 0 ||
-            (row.amount_with_nds && row.amount_with_nds !== "0,00") ||
-            (row.amount_nds && row.amount_nds !== "0,00") ||
-            (row.name && row.name.trim() !== "");
-        }
-      });
+      editableRows.value = normalized;
 
-      editableRows.value = normalized; // вставляем только реальные строки
-
-      // Валидируем каждую строку сразу, чтобы подсветка работала
+      // Валидируем строки
       editableRows.value.forEach((_, index) => validateRow(index));
-
-      // Сбрасываем добавленные индексы, если данные полностью обновились
-      addedRowsIndices.value = [];
     },
     { immediate: true },
   );
+
   const isFileRequired = (row: OverSumTableRow, index: number) => {
     return (
       row.filesRequired ||

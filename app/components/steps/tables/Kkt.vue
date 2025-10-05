@@ -6,6 +6,8 @@
   import { useNumberFields } from "~/composables/tables/useNumberFields";
   import { useKktCalculations } from "~/composables/tables/useKktCalculations";
 
+  const stepTwoStore = useStepTwoStore();
+
   interface KktTableProps {
     headers?: unknown[];
     initialData?: KktTableRow[];
@@ -132,6 +134,9 @@
     editableRows.value.push(newRow);
     addedRowsIndices.value.push(newIndex);
 
+    const tableKey = "kkt";
+    stepTwoStore.updateAddedRows(tableKey, [...addedRowsIndices.value]);
+
     showRemoveButton.value = true;
     tableMessage.value = "Добавлена касса";
     emit("rows-added", [...addedRowsIndices.value]);
@@ -151,6 +156,11 @@
       addedRowsIndices.value = addedRowsIndices.value
         .filter((index) => index !== lastAddedIndex)
         .map((index) => (index > lastAddedIndex ? index - 1 : index));
+
+      // Обновляем стор
+      stepTwoStore.removeRowFromTable("kkt", lastAddedIndex);
+      const tableKey = "otherSum";
+      stepTwoStore.updateAddedRows(tableKey, [...addedRowsIndices.value]);
 
       showRemoveButton.value = addedRowsIndices.value.length > 0;
       tableMessage.value = "Касса удалена";
@@ -191,6 +201,21 @@
         file_ids: fileData.map((file) => Number(file.id)),
       }),
     });
+
+  watch(
+    () => props.initialData,
+    () => {
+      // Восстанавливаем добавленные строки из Pinia
+      const storedAddedRows = stepTwoStore.addedKktRows;
+      addedRowsIndices.value = storedAddedRows?.length
+        ? [...storedAddedRows]
+        : [];
+
+      // Показываем кнопку удалить, если есть добавленные строки
+      showRemoveButton.value = addedRowsIndices.value.length > 0;
+    },
+    { immediate: true },
+  );
 
   const getTableData = () => ({
     rows: [...editableRows.value],

@@ -52,17 +52,6 @@ export const useStepThreeStore = defineStore("stepThree", {
       this.isChanged = true;
     },
 
-    removeLastAddedRow(table: "refunds" | "otherAmounts", index: number) {
-      if (table === "refunds") {
-        this.addedRefundRows = this.addedRefundRows.filter((i) => i !== index);
-      } else {
-        this.addedOtherAmountRows = this.addedOtherAmountRows.filter(
-          (i) => i !== index,
-        );
-      }
-      this.isChanged = true;
-    },
-
     removeRowFromTable(table: "refunds" | "otherAmounts", index: number) {
       const rows = this[table].rows as TableRowWithAmounts[];
       rows.splice(index, 1);
