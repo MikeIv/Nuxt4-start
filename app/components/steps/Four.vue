@@ -3,22 +3,29 @@
   import { useStepTwoStore } from "~/stores/stepTwo";
   import { useStepThreeStore } from "~/stores/stepThree";
   import { useStepFourStore } from "~/stores/stepFour";
-  import { onBeforeRouteLeave } from "#imports";
-
-  onBeforeRouteLeave(() => {
-    if (shouldResetOnLeave.value) {
-      stepOneStore.reset();
-      stepTwoStore.reset();
-      stepThreeStore.reset();
-      stepFourStore.reset();
-      shouldResetOnLeave.value = false;
-    }
-  });
 
   const stepOneStore = useStepOneStore();
   const stepTwoStore = useStepTwoStore();
   const stepThreeStore = useStepThreeStore();
   const stepFourStore = useStepFourStore();
+
+  const router = useRouter();
+
+  // Подписка на смену роутов
+  const unsubscribe = router.afterEach(() => {
+    if (shouldResetOnLeave.value) {
+      stepOneStore.reset();
+      stepTwoStore.$reset();
+      stepThreeStore.$reset();
+      stepFourStore.$reset();
+      shouldResetOnLeave.value = false;
+    }
+  });
+
+  // Отписываемся при уничтожении компонента
+  onBeforeUnmount(() => {
+    unsubscribe();
+  });
 
   // const tableRef = ref();
 
@@ -141,17 +148,8 @@
     ],
   });
 
-  onMounted(async () => {
-    try {
-      await loadReport("/tenants/reports/-1");
-    } catch (error) {
-      console.error("Ошибка при загрузке данных:", error);
-    }
-  });
-
   const handleDownloadReport = async () => {
     if (!reportId.value) return;
-
     try {
       await downloadReport(reportId.value);
     } catch (error) {
