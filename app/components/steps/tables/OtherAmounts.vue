@@ -136,100 +136,80 @@
     const errors: string[] = [];
     const row = editableRows.value[index];
 
+    const name = row.name;
     const amountWithNds = row.amount_with_nds;
     const amountNds = row.amount_nds;
-    const name = row.name;
-    const hasFile = !!row.file_id;
+    const hasFileIds = row.file_ids && row.file_ids.length > 0;
 
-    const hasAmountWithNds = amountWithNds && amountWithNds !== "0,00";
-    const hasAmountNds = amountNds && amountNds !== "0,00";
-    const hasName = name && name.trim() !== "";
-
-    if (hasAmountWithNds && !fieldValidations.amount_with_nds(amountWithNds)) {
+    // проверка числовых форматов
+    if (
+      amountWithNds &&
+      amountWithNds !== "0,00" &&
+      !fieldValidations.amount_with_nds(amountWithNds)
+    ) {
       errors.push("amount_with_nds");
     }
 
-    if (hasAmountNds && !fieldValidations.amount_nds(amountNds)) {
+    if (
+      amountNds &&
+      amountNds !== "0,00" &&
+      !fieldValidations.amount_nds(amountNds)
+    ) {
       errors.push("amount_nds");
     }
 
-    const isNewlyAddedRow = addedRowsIndices.value.includes(index);
-    if (isNewlyAddedRow) {
-      if (!hasName) errors.push("name");
-      if (!hasAmountWithNds) errors.push("amount_with_nds");
-      if (!hasAmountNds) errors.push("amount_nds");
-      if (!hasFile) errors.push("file");
-    } else {
-      let hasNonEmptyModifiedField = false;
-      if (modifiedFields.value[index]) {
-        for (const field of modifiedFields.value[index]) {
-          if (field === "name" && hasName) hasNonEmptyModifiedField = true;
-          if (field === "amount_with_nds" && hasAmountWithNds)
-            hasNonEmptyModifiedField = true;
-          if (field === "amount_nds" && hasAmountNds)
-            hasNonEmptyModifiedField = true;
-        }
-      }
+    row.filesRequired = true;
+    if (!name) errors.push("name");
+    if (!hasFileIds) errors.push("files");
+    if (!amountWithNds || amountWithNds === "0,00")
+      errors.push("amount_with_nds");
+    if (!amountNds || amountNds === "0,00") errors.push("amount_nds");
 
-      if (hasNonEmptyModifiedField) {
-        if (!hasName) errors.push("name");
-        if (!hasAmountWithNds) errors.push("amount_with_nds");
-        if (!hasAmountNds) errors.push("amount_nds");
-        if (!hasFile) errors.push("file");
-      }
-
-      if (modifiedFields.value[index] && !hasNonEmptyModifiedField) {
-        const { [index]: _, ...rest } = modifiedFields.value;
-        modifiedFields.value = rest;
-      }
-    }
-
-    invalidFields.value = {
-      ...invalidFields.value,
-      [index]: errors,
-    };
+    invalidFields.value[index] = errors;
 
     return errors.length === 0;
   };
 
-  const hasAmountInRow = (
-    row: OtherAmountsTableRow,
-    index: number,
-  ): boolean => {
-    const isNewlyAddedRow = addedRowsIndices.value.includes(index);
-    if (isNewlyAddedRow) return true;
-
-    let hasNonEmptyModifiedField = false;
-    if (modifiedFields.value[index]) {
-      const hasAmountWithNds =
-        row.amount_with_nds && row.amount_with_nds !== "0,00";
-      const hasAmountNds = row.amount_nds && row.amount_nds !== "0,00";
-      const hasName = row.name && row.name.trim() !== "";
-
-      for (const field of modifiedFields.value[index]) {
-        if (field === "name" && hasName) hasNonEmptyModifiedField = true;
-        if (field === "amount_with_nds" && hasAmountWithNds)
-          hasNonEmptyModifiedField = true;
-        if (field === "amount_nds" && hasAmountNds)
-          hasNonEmptyModifiedField = true;
-      }
-    }
-    return hasNonEmptyModifiedField;
-  };
-
   // Composable
   const { loading: fileLoading } = useSaveFile();
-  const { handleFileUploaded, handleFileRemoved } =
-    useFileHandling<OtherAmountsTableRow>({
-      editableRows,
-      emit,
-      getFileId: (row) => row.file_id,
-      setFileData: (row, fileData) => ({
-        ...row,
-        file: fileData ? { ...fileData } : undefined,
-        file_id: fileData ? Number(fileData.id) : null,
-      }),
-    });
+  const {
+    handleFileUploaded: baseHandleFileUploaded,
+    handleFileRemoved: baseHandleFileRemoved,
+  } = useFileHandling<OtherAmountsTableRow>({
+    editableRows,
+    emit,
+    getFileIds: (row) => row.file_ids,
+    setFileData: (row, fileData) => ({
+      ...row,
+      files: fileData,
+      file_ids: fileData.map((file) => Number(file.id)),
+    }),
+  });
+
+  // Оборачиваем валидацией, чтобы подсветка обновлялась сразу
+  const handleFileUploaded = async ({
+    index,
+    filesData,
+  }: {
+    index: number;
+    filesData: FileData[];
+  }) => {
+    await baseHandleFileUploaded({ index, filesData });
+    validateRow(index);
+    emitUpdate();
+  };
+
+  const handleFileRemoved = async ({
+    index,
+    fileIndex,
+  }: {
+    index: number;
+    fileIndex: number;
+  }) => {
+    await baseHandleFileRemoved({ index, fileIndex });
+    validateRow(index);
+    emitUpdate();
+  };
 
   const { totalWithVAT, totalVAT } = useCashCalculations(editableRows);
 
@@ -349,19 +329,47 @@
   watch(
     () => props.initialData,
     (newData) => {
-      if (JSON.stringify(newData) !== JSON.stringify(editableRows.value)) {
-        editableRows.value = newData?.length
-          ? newData.map(normalizeRowData)
-          : [createEmptyRow()];
-        addedRowsIndices.value = [];
-        invalidFields.value = {};
-        modifiedFields.value = {};
+      if (!newData || newData.length === 0) return; // ничего не делаем, если данных нет
 
-        editableRows.value.forEach((_, index) => validateRow(index));
-      }
+      const normalized = newData.map(normalizeRowData);
+
+      normalized.forEach((row, index) => {
+        const existing = editableRows.value[index];
+
+        if (existing) {
+          // Сохраняем обязательность файлов и модифицированные поля
+          row.filesRequired =
+            existing.filesRequired ?? row.file_ids?.length > 0;
+          if (modifiedFields.value[index]) {
+            modifiedFields.value[index] = new Set(modifiedFields.value[index]);
+          }
+        } else {
+          // Новые строки с файлами, суммами или именем — обязательны
+          row.filesRequired =
+            row.file_ids?.length > 0 ||
+            (row.amount_with_nds && row.amount_with_nds !== "0,00") ||
+            (row.amount_nds && row.amount_nds !== "0,00") ||
+            (row.name && row.name.trim() !== "");
+        }
+      });
+
+      editableRows.value = normalized; // вставляем только реальные строки
+
+      // Валидируем каждую строку сразу, чтобы подсветка работала
+      editableRows.value.forEach((_, index) => validateRow(index));
+
+      // Сбрасываем добавленные индексы, если данные полностью обновились
+      addedRowsIndices.value = [];
     },
     { immediate: true },
   );
+  const isFileRequired = (row: OtherAmountsTableRow, index: number) => {
+    return (
+      row.filesRequired ||
+      invalidFields.value[index]?.includes("files") ||
+      false
+    );
+  };
 
   watch(totalWithVAT, () => emitUpdate());
   watch(totalVAT, () => emitUpdate());
@@ -474,7 +482,7 @@
           :index="index"
           prefix="other-amount-file"
           :loading="fileLoading"
-          :is-required="hasAmountInRow(row, index)"
+          :is-required="isFileRequired(row, index)"
           :has-error="shouldShowError(index, 'file')"
           @file-uploaded="
             ({ fileData }) => handleFileUploaded({ index, filesData: fileData })
