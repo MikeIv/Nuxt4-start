@@ -200,7 +200,9 @@
           result && "message" in result
             ? result.message
             : "Ошибка при сохранении";
-        showMessage(errorMsg, true);
+        isError.value = !!errorMsg;
+        showMessage("Ошибка", true);
+        console.log("errorMsg", errorMsg);
         return;
       }
 
@@ -283,7 +285,7 @@
     isError.value = error;
     setTimeout(() => {
       saveMessage.value = "";
-    }, 5000);
+    }, 4000);
   };
 
   let cleanupGuard: (() => void) | null = null;
@@ -315,17 +317,17 @@
 </script>
 
 <template>
-  <div :class="cashes.cashes">
+  <div :class="$style.cashes">
     <CashiersHeader
       main-title="Мои кассы"
       step-title="Добавляйте и редактируйте информацию о Ваших кассах"
     />
 
-    <section :class="cashes.content">
+    <section :class="$style.content">
       <div v-if="kktLoading">Загрузка данных...</div>
 
       <template v-else>
-        <section :class="cashes.section">
+        <section :class="$style.section">
           <CashiersTable
             v-for="(block, index) in allTables"
             :key="block.id || `custom-${index}`"
@@ -339,17 +341,17 @@
         </section>
       </template>
 
-      <div :class="cashes.row">
-        <div :class="cashes.actions">
-          <button :class="[cashes.btn, cashes.btnAction]" @click="addBlock">
+      <div :class="$style.row">
+        <div :class="$style.actions">
+          <button :class="[$style.btn, $style.btnAction]" @click="addBlock">
             Добавить кассу
           </button>
         </div>
       </div>
 
-      <div :class="cashes.row">
+      <div :class="$style.row">
         <button
-          :class="[cashes.btn, cashes.btnGhost]"
+          :class="[$style.btn, $style.btnGhost]"
           :disabled="!hasChanges || isSaving || hasEmptyFields"
           :title="
             !hasChanges
@@ -360,17 +362,17 @@
           "
           @click="saveData"
         >
-          <span :class="cashes.btnTitle">
+          <span :class="$style.btnTitle">
             {{ isSaving ? "Сохранение..." : "Сохранить" }}
           </span>
         </button>
 
         <button
-          :class="[cashes.btn, cashes.btnGhost]"
+          :class="[$style.btn, $style.btnGhost]"
           :disabled="!hasChanges || isSaving"
           @click="updateData"
         >
-          <span :class="cashes.btnTitle">
+          <span :class="$style.btnTitle">
             {{ isSaving ? "Отмена..." : "Отменить" }}
           </span>
         </button>
@@ -378,7 +380,7 @@
         <transition name="fade">
           <div
             v-if="saveMessage"
-            :class="[cashes.flagMessage, { error: isError }]"
+            :class="[$style.flagMessage, { errorMessage: isError }]"
           >
             {{ saveMessage }}
             <span v-if="hasEmptyFields && isError">
@@ -391,7 +393,7 @@
   </div>
 </template>
 
-<style module="cashes" lang="scss">
+<style module lang="scss">
   .cashes {
     display: flex;
     flex-direction: column;
@@ -521,7 +523,17 @@
     z-index: 2;
 
     &.error {
-      background-color: var(--a-bgError);
+      background-color: var(--a-bgWarning);
     }
+  }
+
+  .flagMessage.error {
+    background-color: var(--a-bgWarning);
+  }
+</style>
+
+<style lang="scss">
+  .errorMessage {
+    background-color: var(--a-bgWarning);
   }
 </style>
