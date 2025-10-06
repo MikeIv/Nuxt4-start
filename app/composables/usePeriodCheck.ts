@@ -1,3 +1,8 @@
+import { useUserStore } from "#imports";
+
+const userStore = useUserStore();
+const contractId = computed(() => userStore.user?.id || null);
+
 export const usePeriodCheck = (dateRange: Ref<[Date, Date] | null>) => {
   const { callApi } = useApi();
   const toast = useToast();
@@ -14,6 +19,15 @@ export const usePeriodCheck = (dateRange: Ref<[Date, Date] | null>) => {
     isCheckingPeriod.value = true;
     periodExists.value = false;
 
+    if (!contractId.value) {
+      console.error("Contract ID not available");
+      return;
+    }
+
+    const headers = {
+      "Contract-id": contractId.value.toString(),
+    };
+
     try {
       const response = await callApi<{
         start_at: string;
@@ -24,6 +38,7 @@ export const usePeriodCheck = (dateRange: Ref<[Date, Date] | null>) => {
           start_at: dateRange.value[0].toISOString().split("T")[0],
           end_at: dateRange.value[1].toISOString().split("T")[0],
         },
+        headers,
       });
 
       if (response?.success && response.payload?.exists) {
