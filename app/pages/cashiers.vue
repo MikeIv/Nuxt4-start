@@ -363,7 +363,7 @@
       </template>
 
       <template v-if="!loadingIdUser && !kktLoading && allTables.length === 0">
-        <div :class="$style.noData">Нет данных для отображения</div>
+        <div :class="$style.noData">Информация по ККТ отсутствует</div>
       </template>
 
       <div v-if="!loadingIdUser && !kktLoading" :class="$style.row">
@@ -559,15 +559,15 @@
   .flagMessage.error {
     background-color: var(--a-bgWarning);
   }
+
+  .noData {
+    font-size: rem(18);
+    margin-bottom: rem(30);
+  }
 </style>
 
 <style lang="scss">
   .errorMessage {
     background-color: var(--a-bgWarning);
-  }
-
-  .noData {
-    font-size: rem(18);
-    margin-bottom: rem(20);
   }
 </style>
