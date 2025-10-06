@@ -1,4 +1,6 @@
 <script setup lang="ts">
+  import Spinner from "~/components/modules/UI/Spinner.vue";
+
   interface Cashier {
     id?: string | null;
     name: string;
@@ -14,7 +16,8 @@
 
   const userStore = useUserStore();
 
-  const contractId = computed(() => userStore.user?.id || null);
+  const contractId = ref<number | null>(null);
+  const loadingIdUser = ref(true);
 
   const {
     callApi: loadKktData,
@@ -288,24 +291,36 @@
 
   let cleanupGuard: (() => void) | null = null;
 
-  onMounted(async () => {
-    try {
-      await loadCashiersData();
-      if (kktData.value) {
-        allTables.value = kktData.value.map((table) => ({
-          ...table,
-          _originalName: table.name,
-          isDirty: false,
-          isCustom: false,
-        }));
-      }
+  watch(
+    () => userStore.user?.id,
+    async (id) => {
+      loadingIdUser.value = true;
+      if (id) {
+        contractId.value = id;
+        try {
+          await loadCashiersData(); // загрузка через API
 
-      cleanupGuard = setupGuard();
-    } catch (err) {
-      console.error("Ошибка загрузки данных:", err);
-      showMessage("Ошибка при загрузке данных ККТ", true);
-    }
-  });
+          if (kktData.value) {
+            allTables.value = kktData.value.map((table) => ({
+              ...table,
+              _originalName: table.name,
+              isDirty: false,
+              isCustom: false,
+            }));
+          }
+
+          // Настраиваем guard для несохраненных изменений
+          cleanupGuard = setupGuard();
+        } catch (err) {
+          console.error("Ошибка загрузки данных:", err);
+          showMessage("Ошибка при загрузке данных ККТ", true);
+        } finally {
+          loadingIdUser.value = false;
+        }
+      }
+    },
+    { immediate: true },
+  );
 
   onUnmounted(() => {
     if (cleanupGuard) {
@@ -322,7 +337,13 @@
     />
 
     <section :class="cashes.content">
-      <div v-if="kktLoading">Загрузка данных...</div>
+      <div v-if="loadingIdUser || kktLoading" :class="cashes.loadingBlock">
+        <Spinner
+          text="Загрузка данных"
+          :spinner-style="{ width: '25px', height: '25px' }"
+          :text-style="{ fontSize: '18px' }"
+        />
+      </div>
 
       <template v-else>
         <section :class="cashes.section">
@@ -339,7 +360,7 @@
         </section>
       </template>
 
-      <div :class="cashes.row">
+      <div v-if="!loadingIdUser && !kktLoading" :class="cashes.row">
         <div :class="cashes.actions">
           <button :class="[cashes.btn, cashes.btnAction]" @click="addBlock">
             Добавить кассу
@@ -347,7 +368,7 @@
         </div>
       </div>
 
-      <div :class="cashes.row">
+      <div v-if="!loadingIdUser && !kktLoading" :class="cashes.row">
         <button
           :class="[cashes.btn, cashes.btnGhost]"
           :disabled="!hasChanges || isSaving || hasEmptyFields"
@@ -427,6 +448,10 @@
 
     /* Стили для IE/Edge */
     -ms-overflow-style: -ms-autohiding-scrollbar;
+  }
+
+  .loadingBlock {
+    margin-bottom: rem(20);
   }
 
   .content {
