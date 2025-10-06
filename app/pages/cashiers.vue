@@ -341,7 +341,7 @@
         <Spinner
           text="Загрузка данных"
           :spinner-style="{ width: '25px', height: '25px' }"
-          :text-style="{ fontSize: '18px' }"
+          :text-style="{ fontSize: '18px', fontWeight: '500' }"
         />
       </div>
 
@@ -358,6 +358,10 @@
             @remove-block="removeBlock"
           />
         </section>
+      </template>
+
+      <template v-if="!loadingIdUser && !kktLoading && allTables.length === 0">
+        <div :class="cashes.noData">Нет данных для отображения</div>
       </template>
 
       <div v-if="!loadingIdUser && !kktLoading" :class="cashes.row">
@@ -548,5 +552,10 @@
     &.error {
       background-color: var(--a-bgError);
     }
+  }
+
+  .noData {
+    font-size: rem(18);
+    margin-bottom: rem(20);
   }
 </style>
