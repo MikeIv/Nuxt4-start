@@ -1,6 +1,6 @@
 <script setup lang="ts">
   // import { useStepOneStore } from "~/stores/stepOne";
-  // import { useStepTwoStore } from "~/stores/stepTwo";
+  import { useStepTwoStore } from "~/stores/stepTwo";
   import { useStepThreeStore } from "~/stores/stepThree";
 
   const handleBack = () => {
@@ -49,7 +49,7 @@
   const otherAmountsTableRef = ref();
 
   // const stepOneStore = useStepOneStore();
-  // const stepTwoStore = useStepTwoStore();
+  const stepTwoStore = useStepTwoStore();
   const stepThreeStore = useStepThreeStore();
 
   const isDataChanged = ref(false);
@@ -176,6 +176,18 @@
     { immediate: true },
   );
 
+  watch(
+    () => stepTwoStore.kkt.rows,
+    () => {
+      stepThreeStore.syncRefundsWithKkts();
+
+      nextTick(() => {
+        refundsTableRef.value?.setData?.(stepThreeStore.refunds.rows);
+      });
+    },
+    { deep: true },
+  );
+
   // const { saveReport, updateStores } = useSaveReport({
   //   tableRefs: {
   //     refunds: refundsTableRef,
@@ -264,6 +276,8 @@
       await loadReport("/tenants/reports/-1");
 
       await nextTick();
+
+      stepThreeStore.syncRefundsWithKkts();
 
       setTableData(refundsTableRef, stepThreeStore.refunds, tableRefunds.value);
       setTableData(
