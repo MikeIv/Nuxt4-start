@@ -3,7 +3,13 @@
   import { useStepOneStore } from "~/stores/stepOne";
 
   const handleBack = () => {
-    console.log("Back");
+    const tablesData = {
+      kkt: kktTableRef.value?.getTableData(),
+      cashKkt: cashKktTableRef.value?.getTableData(),
+      nonCash: nonCashTableRef.value?.getTableData(),
+      otherSum: otherSumTableRef.value?.getTableData(),
+    };
+    updateStores(tablesData);
     navigateTo("/record/1");
   };
 

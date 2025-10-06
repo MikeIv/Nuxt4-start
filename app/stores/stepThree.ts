@@ -1,6 +1,8 @@
 import { defineStore } from "pinia";
 import type { RefundsTableRow, OtherAmountsTableRow } from "~/types/tables";
 
+type TableRowWithAmounts = { amount_with_nds: string; amount_nds: string };
+
 interface TableData<T> {
   rows: T[];
   withVAT: number;
@@ -11,6 +13,8 @@ interface StepThreeState {
   refunds: TableData<RefundsTableRow>;
   otherAmounts: TableData<OtherAmountsTableRow>;
   isChanged: boolean;
+  addedRefundRows: number[];
+  addedOtherAmountRows: number[];
 }
 
 export const useStepThreeStore = defineStore("stepThree", {
@@ -18,6 +22,8 @@ export const useStepThreeStore = defineStore("stepThree", {
     refunds: { rows: [], withVAT: 0, VAT: 0 },
     otherAmounts: { rows: [], withVAT: 0, VAT: 0 },
     isChanged: false,
+    addedRefundRows: [],
+    addedOtherAmountRows: [],
   }),
 
   getters: {
@@ -40,6 +46,36 @@ export const useStepThreeStore = defineStore("stepThree", {
       this.isChanged = true;
     },
 
+    updateAddedRows(table: "refunds" | "otherAmounts", indices: number[]) {
+      if (table === "refunds") this.addedRefundRows = indices;
+      else this.addedOtherAmountRows = indices;
+      this.isChanged = true;
+    },
+
+    removeRowFromTable(table: "refunds" | "otherAmounts", index: number) {
+      const rows = this[table].rows as TableRowWithAmounts[];
+      rows.splice(index, 1);
+
+      this[table].withVAT = rows.reduce(
+        (sum, r) => sum + parseFloat(r.amount_with_nds || "0"),
+        0,
+      );
+      this[table].VAT = rows.reduce(
+        (sum, r) => sum + parseFloat(r.amount_nds || "0"),
+        0,
+      );
+
+      if (table === "otherAmounts") {
+        this.addedOtherAmountRows = this.addedOtherAmountRows.filter(
+          (i) => i !== index,
+        );
+      } else {
+        this.addedRefundRows = this.addedRefundRows.filter((i) => i !== index);
+      }
+
+      this.isChanged = true;
+    },
+
     getAllData() {
       return {
         refunds: { ...this.refunds },
@@ -50,6 +86,11 @@ export const useStepThreeStore = defineStore("stepThree", {
 
   persist: {
     key: "step-three-storage",
-    paths: ["refunds", "otherAmounts"],
+    paths: [
+      "refunds",
+      "otherAmounts",
+      "addedRefundRows",
+      "addedOtherAmountRows",
+    ],
   },
 });

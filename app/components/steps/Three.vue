@@ -4,7 +4,30 @@
   import { useStepThreeStore } from "~/stores/stepThree";
 
   const handleBack = () => {
-    console.log("Back");
+    const tablesData = {
+      refunds: refundsTableRef.value?.getTableData() || {
+        rows: [],
+        totals: { withVAT: 0, VAT: 0 },
+      },
+      otherAmounts: otherAmountsTableRef.value?.getTableData() || {
+        rows: [],
+        totals: { withVAT: 0, VAT: 0 },
+      },
+    };
+
+    // Сохраняем таблицы в Pinia перед возвратом
+    stepThreeStore.updateTable("refunds", {
+      rows: tablesData.refunds.rows,
+      withVAT: tablesData.refunds.totals.withVAT,
+      VAT: tablesData.refunds.totals.VAT,
+    });
+
+    stepThreeStore.updateTable("otherAmounts", {
+      rows: tablesData.otherAmounts.rows,
+      withVAT: tablesData.otherAmounts.totals.withVAT,
+      VAT: tablesData.otherAmounts.totals.VAT,
+    });
+
     navigateTo("/record/2");
   };
 

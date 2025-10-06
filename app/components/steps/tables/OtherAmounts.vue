@@ -1,5 +1,6 @@
 <script setup lang="ts">
   import type { OtherAmountsTableRow, FileData } from "~/types/tables";
+  const stepThreeStore = useStepThreeStore();
 
   const props = defineProps({
     headers: {
@@ -136,100 +137,80 @@
     const errors: string[] = [];
     const row = editableRows.value[index];
 
+    const name = row.name;
     const amountWithNds = row.amount_with_nds;
     const amountNds = row.amount_nds;
-    const name = row.name;
-    const hasFile = !!row.file_id;
+    const hasFileIds = row.file_ids && row.file_ids.length > 0;
 
-    const hasAmountWithNds = amountWithNds && amountWithNds !== "0,00";
-    const hasAmountNds = amountNds && amountNds !== "0,00";
-    const hasName = name && name.trim() !== "";
-
-    if (hasAmountWithNds && !fieldValidations.amount_with_nds(amountWithNds)) {
+    // проверка числовых форматов
+    if (
+      amountWithNds &&
+      amountWithNds !== "0,00" &&
+      !fieldValidations.amount_with_nds(amountWithNds)
+    ) {
       errors.push("amount_with_nds");
     }
 
-    if (hasAmountNds && !fieldValidations.amount_nds(amountNds)) {
+    if (
+      amountNds &&
+      amountNds !== "0,00" &&
+      !fieldValidations.amount_nds(amountNds)
+    ) {
       errors.push("amount_nds");
     }
 
-    const isNewlyAddedRow = addedRowsIndices.value.includes(index);
-    if (isNewlyAddedRow) {
-      if (!hasName) errors.push("name");
-      if (!hasAmountWithNds) errors.push("amount_with_nds");
-      if (!hasAmountNds) errors.push("amount_nds");
-      if (!hasFile) errors.push("file");
-    } else {
-      let hasNonEmptyModifiedField = false;
-      if (modifiedFields.value[index]) {
-        for (const field of modifiedFields.value[index]) {
-          if (field === "name" && hasName) hasNonEmptyModifiedField = true;
-          if (field === "amount_with_nds" && hasAmountWithNds)
-            hasNonEmptyModifiedField = true;
-          if (field === "amount_nds" && hasAmountNds)
-            hasNonEmptyModifiedField = true;
-        }
-      }
+    row.filesRequired = true;
+    if (!name) errors.push("name");
+    if (!hasFileIds) errors.push("files");
+    if (!amountWithNds || amountWithNds === "0,00")
+      errors.push("amount_with_nds");
+    if (!amountNds || amountNds === "0,00") errors.push("amount_nds");
 
-      if (hasNonEmptyModifiedField) {
-        if (!hasName) errors.push("name");
-        if (!hasAmountWithNds) errors.push("amount_with_nds");
-        if (!hasAmountNds) errors.push("amount_nds");
-        if (!hasFile) errors.push("file");
-      }
-
-      if (modifiedFields.value[index] && !hasNonEmptyModifiedField) {
-        const { [index]: _, ...rest } = modifiedFields.value;
-        modifiedFields.value = rest;
-      }
-    }
-
-    invalidFields.value = {
-      ...invalidFields.value,
-      [index]: errors,
-    };
+    invalidFields.value[index] = errors;
 
     return errors.length === 0;
   };
 
-  const hasAmountInRow = (
-    row: OtherAmountsTableRow,
-    index: number,
-  ): boolean => {
-    const isNewlyAddedRow = addedRowsIndices.value.includes(index);
-    if (isNewlyAddedRow) return true;
-
-    let hasNonEmptyModifiedField = false;
-    if (modifiedFields.value[index]) {
-      const hasAmountWithNds =
-        row.amount_with_nds && row.amount_with_nds !== "0,00";
-      const hasAmountNds = row.amount_nds && row.amount_nds !== "0,00";
-      const hasName = row.name && row.name.trim() !== "";
-
-      for (const field of modifiedFields.value[index]) {
-        if (field === "name" && hasName) hasNonEmptyModifiedField = true;
-        if (field === "amount_with_nds" && hasAmountWithNds)
-          hasNonEmptyModifiedField = true;
-        if (field === "amount_nds" && hasAmountNds)
-          hasNonEmptyModifiedField = true;
-      }
-    }
-    return hasNonEmptyModifiedField;
-  };
-
   // Composable
   const { loading: fileLoading } = useSaveFile();
-  const { handleFileUploaded, handleFileRemoved } =
-    useFileHandling<OtherAmountsTableRow>({
-      editableRows,
-      emit,
-      getFileId: (row) => row.file_id,
-      setFileData: (row, fileData) => ({
-        ...row,
-        file: fileData ? { ...fileData } : undefined,
-        file_id: fileData ? Number(fileData.id) : null,
-      }),
-    });
+  const {
+    handleFileUploaded: baseHandleFileUploaded,
+    handleFileRemoved: baseHandleFileRemoved,
+  } = useFileHandling<OtherAmountsTableRow>({
+    editableRows,
+    emit,
+    getFileIds: (row) => row.file_ids,
+    setFileData: (row, fileData) => ({
+      ...row,
+      files: fileData,
+      file_ids: fileData.map((file) => Number(file.id)),
+    }),
+  });
+
+  // Оборачиваем валидацией, чтобы подсветка обновлялась сразу
+  const handleFileUploaded = async ({
+    index,
+    filesData,
+  }: {
+    index: number;
+    filesData: FileData[];
+  }) => {
+    await baseHandleFileUploaded({ index, filesData });
+    validateRow(index);
+    emitUpdate();
+  };
+
+  const handleFileRemoved = async ({
+    index,
+    fileIndex,
+  }: {
+    index: number;
+    fileIndex: number;
+  }) => {
+    await baseHandleFileRemoved({ index, fileIndex });
+    validateRow(index);
+    emitUpdate();
+  };
 
   const { totalWithVAT, totalVAT } = useCashCalculations(editableRows);
 
@@ -274,6 +255,10 @@
     editableRows.value.push(newRow);
     const newIndex = editableRows.value.length - 1;
     addedRowsIndices.value.push(newIndex);
+    // Сохраняем в стор
+    const tableKey = "otherAmounts";
+    stepThreeStore.updateAddedRows(tableKey, [...addedRowsIndices.value]);
+
     showRemoveButton.value = true;
 
     editingNameIndex.value = newIndex;
@@ -325,6 +310,11 @@
     });
     modifiedFields.value = newModifiedFields;
 
+    // Обновляем стор
+    stepThreeStore.removeRowFromTable("otherAmounts", lastAddedIndex);
+    const tableKey = "otherAmounts";
+    stepThreeStore.updateAddedRows(tableKey, [...addedRowsIndices.value]);
+
     showRemoveButton.value = addedRowsIndices.value.length > 0;
     tableMessage.value = "Основание удалено";
     emitUpdate();
@@ -349,19 +339,32 @@
   watch(
     () => props.initialData,
     (newData) => {
-      if (JSON.stringify(newData) !== JSON.stringify(editableRows.value)) {
-        editableRows.value = newData?.length
-          ? newData.map(normalizeRowData)
-          : [createEmptyRow()];
-        addedRowsIndices.value = [];
-        invalidFields.value = {};
-        modifiedFields.value = {};
+      const normalized = (newData || []).map(normalizeRowData);
 
-        editableRows.value.forEach((_, index) => validateRow(index));
-      }
+      // Восстанавливаем добавленные строки из Pinia
+      const storedAddedRows = stepThreeStore.addedOtherAmountRows;
+      addedRowsIndices.value = storedAddedRows?.length
+        ? [...storedAddedRows]
+        : [];
+
+      // Показываем кнопку удалить, если есть добавленные строки
+      showRemoveButton.value = addedRowsIndices.value.length > 0;
+
+      editableRows.value = normalized;
+
+      // Валидируем строки
+      editableRows.value.forEach((_, index) => validateRow(index));
     },
     { immediate: true },
   );
+
+  const isFileRequired = (row: OtherAmountsTableRow, index: number) => {
+    return (
+      row.filesRequired ||
+      invalidFields.value[index]?.includes("files") ||
+      false
+    );
+  };
 
   watch(totalWithVAT, () => emitUpdate());
   watch(totalVAT, () => emitUpdate());
@@ -469,17 +472,21 @@
 
       <div class="cell body-cell">
         <StepsCoreFileUploader
-          :file="row.file"
-          :file-id="row.file_id"
+          :files="row.files || []"
+          :file-ids="row.file_ids || []"
           :index="index"
+          :multiple="true"
+          :max-files="10"
           prefix="other-amount-file"
           :loading="fileLoading"
-          :is-required="hasAmountInRow(row, index)"
+          :is-required="isFileRequired(row, index)"
           :has-error="shouldShowError(index, 'file')"
-          @file-uploaded="
-            ({ fileData }) => handleFileUploaded({ index, filesData: fileData })
+          @files-uploaded="
+            ({ filesData }) => handleFileUploaded({ index, filesData })
           "
-          @file-removed="() => handleFileRemoved({ index })"
+          @file-removed="
+            ({ fileIndex }) => handleFileRemoved({ index, fileIndex })
+          "
         />
       </div>
     </template>

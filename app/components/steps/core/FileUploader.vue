@@ -127,7 +127,7 @@
           :disabled="isLoading"
           @click="removeFile(fileIndex)"
         >
-          <UIcon name="busket" :class="$style.buttonIcon" />
+          <UIcon name="delete-icon" :class="$style.buttonIcon" />
         </button>
       </div>
     </div>
