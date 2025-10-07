@@ -27,6 +27,20 @@ export const useReportCalculation = () => {
   const reportSaved = ref(false);
   const shouldResetOnLeave = ref(false);
 
+  const normalizeNumber = (
+    value: string | number | null | undefined,
+  ): number => {
+    if (value === null || value === undefined || value === "") return 0.0;
+
+    const normalized = value.toString().replace(",", ".").trim();
+    const parsed = Number(normalized);
+
+    if (isNaN(parsed)) return 0.0;
+
+    // Возвращаем число с фиксированной точностью (2 знака после запятой)
+    return Number(parsed.toFixed(2));
+  };
+
   baseComparisonValue.value = stepFourStore.baseComparisonValue;
   baseComparisonError.value = baseComparisonValue.value === null;
 
@@ -144,55 +158,55 @@ export const useReportCalculation = () => {
           kkts: stepTwoStore.kkt.rows.map((row) => ({
             name: row.name || "",
             registration_number: row.registration_number || "",
-            start_meter_reading: parseFloat(row.start_meter_reading) || 0,
-            end_meter_reading: parseFloat(row.end_meter_reading) || 0,
+            start_meter_reading: normalizeNumber(row.start_meter_reading) || 0,
+            end_meter_reading: normalizeNumber(row.end_meter_reading) || 0,
             amount_without_advance_with_nds:
-              parseFloat(row.amount_without_advance_with_nds) || 0,
+              normalizeNumber(row.amount_without_advance_with_nds) || 0,
             amount_without_advance_nds:
-              parseFloat(row.amount_without_advance_nds) || 0,
+              normalizeNumber(row.amount_without_advance_nds) || 0,
             advance_without_certificates_with_nds:
-              parseFloat(row.advance_without_certificates_with_nds) || 0,
+              normalizeNumber(row.advance_without_certificates_with_nds) || 0,
             advance_without_certificates_nds:
-              parseFloat(row.advance_without_certificates_nds) || 0,
+              normalizeNumber(row.advance_without_certificates_nds) || 0,
             file_ids: row.file_ids || [],
           })),
           cash_turnovers_without_kkt: stepTwoStore.cashKkt.rows.map((row) => ({
             name: row.name || "",
             settlement_account_number: row.settlement_account_number || "",
-            amount_with_nds: parseFloat(row.amount_with_nds) || 0,
-            amount_nds: parseFloat(row.amount_nds) || 0,
+            amount_with_nds: normalizeNumber(row.amount_with_nds) || 0,
+            amount_nds: normalizeNumber(row.amount_nds) || 0,
             file_ids: row.file_ids || [],
           })),
           cash_turnovers_non_cash: stepTwoStore.nonCash.rows.map((row) => ({
             name: row.name || "",
-            amount_with_nds: parseFloat(row.amount_with_nds) || 0,
-            amount_nds: parseFloat(row.amount_nds) || 0,
+            amount_with_nds: normalizeNumber(row.amount_with_nds) || 0,
+            amount_nds: normalizeNumber(row.amount_nds) || 0,
             file_ids: row.file_ids || [],
           })),
           cash_turnovers_other: stepTwoStore.otherSum.rows.map((row) => ({
             name: row.name || "",
-            amount_with_nds: parseFloat(row.amount_with_nds) || 0,
-            amount_nds: parseFloat(row.amount_nds) || 0,
+            amount_with_nds: normalizeNumber(row.amount_with_nds) || 0,
+            amount_nds: normalizeNumber(row.amount_nds) || 0,
             file_ids: row.file_ids || [],
           })),
           kkts_exclusions: stepThreeStore.refunds.rows.map((row) => ({
             name: row.name || "",
             registration_number: row.registration_number || "",
             returns_goods_services_with_nds:
-              parseFloat(row.returns_goods_services_with_nds) || 0,
+              normalizeNumber(row.returns_goods_services_with_nds) || 0,
             returns_goods_services_nds:
-              parseFloat(row.returns_goods_services_nds) || 0,
+              normalizeNumber(row.returns_goods_services_nds) || 0,
             gift_certificates_sold_with_nds:
-              parseFloat(row.gift_certificates_sold_with_nds) || 0,
+              normalizeNumber(row.gift_certificates_sold_with_nds) || 0,
             gift_certificates_sold_nds:
-              parseFloat(row.gift_certificates_sold_nds) || 0,
+              normalizeNumber(row.gift_certificates_sold_nds) || 0,
             file_ids: row.file_ids || [],
           })),
           cash_turnover_exclusions_other: stepThreeStore.otherAmounts.rows.map(
             (row) => ({
               name: row.name || "",
-              amount_with_nds: parseFloat(row.amount_with_nds) || 0,
-              amount_nds: parseFloat(row.amount_nds) || 0,
+              amount_with_nds: normalizeNumber(row.amount_with_nds) || 0,
+              amount_nds: normalizeNumber(row.amount_nds) || 0,
               file_ids: row.file_ids || [],
             }),
           ),
