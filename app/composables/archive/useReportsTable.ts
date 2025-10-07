@@ -64,18 +64,6 @@ export function useReportsTable({
 }: UseReportsTableParams) {
   const sorting = ref<SortingState>([]);
 
-  const sortedReports = computed(() => {
-    return [...reports.value].sort((a, b) => {
-      const aEndStr =
-        (a.period.split(" - ")[1] ?? a.period.split(" - ")[0]) || "";
-      const bEndStr =
-        (b.period.split(" - ")[1] ?? b.period.split(" - ")[0]) || "";
-      const dateA = new Date(aEndStr.replace(" ", "T")).getTime();
-      const dateB = new Date(bEndStr.replace(" ", "T")).getTime();
-      return dateB - dateA;
-    });
-  });
-
   const sortedHeaders = computed(() => {
     return headers.filter(
       (header) =>
@@ -319,7 +307,7 @@ export function useReportsTable({
 
   const table = useVueTable({
     get data() {
-      return sortedReports.value;
+      return reports.value;
     },
     get columns() {
       return columns.value;
@@ -338,5 +326,5 @@ export function useReportsTable({
     getSortedRowModel: getSortedRowModel(),
   });
 
-  return { table, sorting, sortedReports };
+  return { table, sorting };
 }
