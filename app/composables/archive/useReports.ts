@@ -73,6 +73,21 @@ export const useReports = () => {
     await fetchReports();
   };
 
+  const toggleSortOrder = async (
+    order: "asc" | "desc" | "default",
+    page: number,
+  ) => {
+    if (order === "default") {
+      sortOrder.value = "asc"; // вернем значение по умолчанию
+      await fetchReports(page);
+      return;
+    }
+
+    sortOrder.value = order;
+
+    await fetchReports(page);
+  };
+
   return {
     perPage,
     isRefreshing,
@@ -83,5 +98,6 @@ export const useReports = () => {
     loadPage,
     refreshReports,
     handlePerPageChange,
+    toggleSortOrder,
   };
 };

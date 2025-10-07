@@ -42,7 +42,6 @@ interface UseReportsTableParams {
   downloadReport: (id: number) => Promise<void>;
   openCorrectionModal: (id: number) => void;
   confirmDeleteReport: (id: number) => void;
-  emitSortChange: (sorting: SortingState) => void;
   $style: Record<string, string>;
   navigateTo: (path: string) => void;
 }
@@ -58,7 +57,6 @@ export function useReportsTable({
   downloadReport,
   openCorrectionModal,
   confirmDeleteReport,
-  emitSortChange,
   $style,
   navigateTo,
 }: UseReportsTableParams) {
@@ -113,9 +111,9 @@ export function useReportsTable({
         size: 150,
         enableSorting: [
           "period",
-          "turnover_amount",
-          "turnover_fee",
-          "status",
+          // "turnover_amount",
+          // "turnover_fee",
+          // "status",
         ].includes(header.key),
       };
 
@@ -316,11 +314,6 @@ export function useReportsTable({
       get sorting() {
         return sorting.value;
       },
-    },
-    onSortingChange: (updater) => {
-      sorting.value =
-        typeof updater === "function" ? updater(sorting.value) : updater;
-      emitSortChange(sorting.value);
     },
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
