@@ -3,6 +3,10 @@ import { useStepOneStore } from "~/stores/stepOne";
 import { useStepTwoStore } from "~/stores/stepTwo";
 import { useStepThreeStore } from "~/stores/stepThree";
 import { useStepFourStore } from "~/stores/stepFour";
+import { useUserStore } from "#imports";
+
+const userStore = useUserStore();
+const contractId = computed(() => userStore.user?.id || null);
 
 export const useReportCalculation = () => {
   const {
@@ -199,10 +203,20 @@ export const useReportCalculation = () => {
         },
       };
 
+      if (!contractId.value) {
+        console.error("Contract ID not available");
+        return;
+      }
+
+      const headers = {
+        "Contract-id": contractId.value.toString(),
+      };
+
       console.log("Sending report payload:", reportPayload);
       const response = await loadReport("/tenants/reports", {
         method: "POST",
         body: reportPayload,
+        headers,
       });
 
       if (!response) {

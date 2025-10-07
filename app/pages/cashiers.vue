@@ -1,4 +1,6 @@
 <script setup lang="ts">
+  import Spinner from "~/components/modules/UI/Spinner.vue";
+
   interface Cashier {
     id?: string | null;
     name: string;
@@ -14,7 +16,8 @@
 
   const userStore = useUserStore();
 
-  const contractId = computed(() => userStore.user?.id || null);
+  const contractId = ref<number | null>(null);
+  const loadingIdUser = ref(true);
 
   const {
     callApi: loadKktData,
@@ -290,24 +293,36 @@
 
   let cleanupGuard: (() => void) | null = null;
 
-  onMounted(async () => {
-    try {
-      await loadCashiersData();
-      if (kktData.value) {
-        allTables.value = kktData.value.map((table) => ({
-          ...table,
-          _originalName: table.name,
-          isDirty: false,
-          isCustom: false,
-        }));
-      }
+  watch(
+    () => userStore.user?.id,
+    async (id) => {
+      loadingIdUser.value = true;
+      if (id) {
+        contractId.value = id;
+        try {
+          await loadCashiersData(); // загрузка через API
 
-      cleanupGuard = setupGuard();
-    } catch (err) {
-      console.error("Ошибка загрузки данных:", err);
-      showMessage("Ошибка при загрузке данных ККТ", true);
-    }
-  });
+          if (kktData.value) {
+            allTables.value = kktData.value.map((table) => ({
+              ...table,
+              _originalName: table.name,
+              isDirty: false,
+              isCustom: false,
+            }));
+          }
+
+          // Настраиваем guard для несохраненных изменений
+          cleanupGuard = setupGuard();
+        } catch (err) {
+          console.error("Ошибка загрузки данных:", err);
+          showMessage("Ошибка при загрузке данных ККТ", true);
+        } finally {
+          loadingIdUser.value = false;
+        }
+      }
+    },
+    { immediate: true },
+  );
 
   onUnmounted(() => {
     if (cleanupGuard) {
@@ -324,7 +339,13 @@
     />
 
     <section :class="$style.content">
-      <div v-if="kktLoading">Загрузка данных...</div>
+      <div v-if="loadingIdUser || kktLoading" :class="$style.loadingBlock">
+        <Spinner
+          text="Загрузка данных"
+          :spinner-style="{ width: '25px', height: '25px' }"
+          :text-style="{ fontSize: '18px', fontWeight: '500' }"
+        />
+      </div>
 
       <template v-else>
         <section :class="$style.section">
@@ -341,7 +362,11 @@
         </section>
       </template>
 
-      <div :class="$style.row">
+      <template v-if="!loadingIdUser && !kktLoading && allTables.length === 0">
+        <div :class="$style.noData">Информация по ККТ отсутствует</div>
+      </template>
+
+      <div v-if="!loadingIdUser && !kktLoading" :class="$style.row">
         <div :class="$style.actions">
           <button :class="[$style.btn, $style.btnAction]" @click="addBlock">
             Добавить кассу
@@ -349,7 +374,7 @@
         </div>
       </div>
 
-      <div :class="$style.row">
+      <div v-if="!loadingIdUser && !kktLoading" :class="$style.row">
         <button
           :class="[$style.btn, $style.btnGhost]"
           :disabled="!hasChanges || isSaving || hasEmptyFields"
@@ -429,6 +454,10 @@
 
     /* Стили для IE/Edge */
     -ms-overflow-style: -ms-autohiding-scrollbar;
+  }
+
+  .loadingBlock {
+    margin-bottom: rem(20);
   }
 
   .content {
@@ -529,6 +558,11 @@
 
   .flagMessage.error {
     background-color: var(--a-bgWarning);
+  }
+
+  .noData {
+    font-size: rem(18);
+    margin-bottom: rem(30);
   }
 </style>
 

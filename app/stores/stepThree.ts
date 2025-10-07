@@ -1,5 +1,10 @@
 import { defineStore } from "pinia";
-import type { RefundsTableRow, OtherAmountsTableRow } from "~/types/tables";
+import type {
+  RefundsTableRow,
+  OtherAmountsTableRow,
+  KktTableRow,
+} from "~/types/tables";
+import { useStepTwoStore } from "#imports";
 
 type TableRowWithAmounts = { amount_with_nds: string; amount_nds: string };
 
@@ -44,6 +49,33 @@ export const useStepThreeStore = defineStore("stepThree", {
     ) {
       this[table] = data;
       this.isChanged = true;
+    },
+
+    syncRefundsWithKkts() {
+      const stepTwoStore = useStepTwoStore();
+      const kkts = stepTwoStore.kkt.rows || [];
+
+      const updatedRefunds = kkts.map((kkt: KktTableRow) => {
+        const existing = this.refunds.rows.find(
+          (r: RefundsTableRow) =>
+            r.registration_number === kkt.registration_number,
+        );
+        return (
+          existing || {
+            id: kkt.id || "",
+            name: kkt.name || "",
+            registration_number: kkt.registration_number || "",
+            returns_goods_services_with_nds: "0,00",
+            returns_goods_services_nds: "0,00",
+            gift_certificates_sold_with_nds: "0,00",
+            gift_certificates_sold_nds: "0,00",
+            file_ids: [],
+            files: [],
+          }
+        );
+      });
+
+      this.refunds.rows = updatedRefunds;
     },
 
     updateAddedRows(table: "refunds" | "otherAmounts", indices: number[]) {
