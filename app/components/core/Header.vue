@@ -21,6 +21,7 @@
       user?.tenant_name,
       user?.brand,
       user?.contract_number ? `Договор ${user?.contract_number}` : null,
+      user?.room_number ? `Помещение ${user?.room_number}` : null,
     ]
       .filter(Boolean)
       .join(", ");
