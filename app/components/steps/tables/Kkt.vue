@@ -549,6 +549,8 @@
   .errorInput {
     border: 1px solid var(--a-borderError) !important;
     border-radius: 0.25rem !important;
+    animation: pulse 1.5s infinite;
+    box-shadow: 0 0 4px 0 var(--a-borderError);
   }
 
   .errorMessage {
@@ -580,6 +582,18 @@
     }
     50% {
       opacity: 0.7;
+    }
+    100% {
+      opacity: 1;
+    }
+  }
+
+  @keyframes errorInput {
+    0% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.1;
     }
     100% {
       opacity: 1;

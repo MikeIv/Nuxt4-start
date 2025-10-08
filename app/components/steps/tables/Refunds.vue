@@ -197,6 +197,22 @@
     getTableData,
     setData,
   });
+
+  const handleNumberFocus = (
+    event: Event,
+    field:
+      | "returns_goods_services_with_nds"
+      | "returns_goods_services_nds"
+      | "gift_certificates_sold_with_nds"
+      | "gift_certificates_sold_nds",
+    index: number,
+  ): void => {
+    const target = event.target as HTMLInputElement;
+    if (target.value === "0,00") {
+      target.value = "";
+      editableRows.value[index][field] = "";
+    }
+  };
 </script>
 
 <template>
@@ -227,9 +243,11 @@
           placeholder="Ровно 16 цифр"
           maxlength="16"
           inputmode="numeric"
+          readonly
           :class="[
             $style.inputField,
             { [$style.errorInput]: shouldShowErrorKkt(index) },
+            $style.inputFieldNumber,
           ]"
           @input="handleKktInput($event, index)"
           @blur="validateKktNumber(index)"
@@ -270,6 +288,13 @@
                 index,
               )
             "
+            @focus="
+              handleNumberFocus(
+                $event,
+                'returns_goods_services_with_nds',
+                index,
+              )
+            "
           />
         </div>
         <div>
@@ -291,6 +316,9 @@
             "
             @blur="
               handleNumberBlurWithDefault('returns_goods_services_nds', index)
+            "
+            @focus="
+              handleNumberFocus($event, 'returns_goods_services_nds', index)
             "
           />
         </div>
@@ -324,6 +352,13 @@
                 index,
               )
             "
+            @focus="
+              handleNumberFocus(
+                $event,
+                'gift_certificates_sold_with_nds',
+                index,
+              )
+            "
           />
         </div>
         <div>
@@ -345,6 +380,9 @@
             "
             @blur="
               handleNumberBlurWithDefault('gift_certificates_sold_nds', index)
+            "
+            @focus="
+              handleNumberFocus($event, 'gift_certificates_sold_nds', index)
             "
           />
         </div>
@@ -407,6 +445,15 @@
     &:focus {
       outline: none;
       border-color: var(--a-borderAccent);
+    }
+  }
+
+  .inputFieldNumber {
+    cursor: default;
+
+    &:focus {
+      outline: none;
+      border-color: var(--a-borderAccentLight);
     }
   }
 
