@@ -57,6 +57,23 @@
     Editable: "#F18D1E",
   };
 
+  const currentSort = ref<"asc" | "desc" | "default">("default");
+
+  const onSortClick = () => {
+    // Меняем направление вручную
+    if (currentSort.value === "asc") {
+      currentSort.value = "desc";
+    } else if (currentSort.value === "desc") {
+      currentSort.value = "default";
+    } else if (currentSort.value === "default") {
+      currentSort.value = "asc"; // первая сортировка
+    }
+
+    emit("sortChange", {
+      order: currentSort.value,
+    });
+  };
+
   // Обработка клика по странице
   const handlePageChange = (page: number | string) => {
     if (!props.pagination || page === "...") return;
@@ -175,7 +192,6 @@
     downloadReport,
     openCorrectionModal,
     confirmDeleteReport,
-    emitSortChange: (s) => emit("sortChange", s),
     $style,
     navigateTo,
   });
@@ -204,18 +220,16 @@
                   <span
                     v-if="header.column.getCanSort()"
                     :class="$style.sortIcon"
-                    @click.stop="header.column.toggleSorting()"
+                    @click.stop="onSortClick()"
                   >
-                    <template v-if="header.column.getIsSorted() === false">
+                    <template v-if="currentSort === 'default'">
                       <IconSort />
                     </template>
-                    <template v-else-if="header.column.getIsSorted() === 'asc'">
-                      <IconSortAsc />
-                    </template>
-                    <template
-                      v-else-if="header.column.getIsSorted() === 'desc'"
-                    >
+                    <template v-else-if="currentSort === 'desc'">
                       <IconSortDesc />
+                    </template>
+                    <template v-else-if="currentSort === 'asc'">
+                      <IconSortAsc />
                     </template>
                   </span>
                 </div>

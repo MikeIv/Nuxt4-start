@@ -183,6 +183,7 @@
     start_meter_reading: { required: true, min: 0, allowZero: true },
     end_meter_reading: { required: true, min: 0, allowZero: true },
     amount_without_advance_nds: { required: true, min: 0 },
+    amount_without_advance_with_nds: { required: true, min: 0 },
     advance_without_certificates_with_nds: { required: true, min: 0 },
     advance_without_certificates_nds: { required: true, min: 0 },
   } as const;
@@ -215,6 +216,20 @@
       showRemoveButton.value = addedRowsIndices.value.length > 0;
     },
     { immediate: true },
+  );
+
+  watch(
+    editableRows,
+    (rows) => {
+      rows.forEach((row) => {
+        const calculated = calculateWithNds(row);
+        // Обновляем только если значение реально изменилось (во избежание циклов)
+        if (Number(row.amount_without_advance_with_nds) !== calculated) {
+          row.amount_without_advance_with_nds = calculated.toFixed(2);
+        }
+      });
+    },
+    { deep: true },
   );
 
   const getTableData = () => ({
@@ -534,6 +549,8 @@
   .errorInput {
     border: 1px solid var(--a-borderError) !important;
     border-radius: 0.25rem !important;
+    animation: pulse 1.5s infinite;
+    box-shadow: 0 0 4px 0 var(--a-borderError);
   }
 
   .errorMessage {
@@ -565,6 +582,18 @@
     }
     50% {
       opacity: 0.7;
+    }
+    100% {
+      opacity: 1;
+    }
+  }
+
+  @keyframes errorInput {
+    0% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.1;
     }
     100% {
       opacity: 1;

@@ -9,6 +9,7 @@
     error,
     init,
     loadPage,
+    toggleSortOrder,
     refreshReports,
     handlePerPageChange,
   } = useReports();
@@ -44,6 +45,9 @@
           @refresh-reports="refreshReports"
           @page-change="loadPage"
           @per-page-change="handlePerPageChange"
+          @sort-change="
+            ({ order }) => toggleSortOrder(order, apiResponse.current_page)
+          "
         />
       </section>
     </div>

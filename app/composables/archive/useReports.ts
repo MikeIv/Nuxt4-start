@@ -6,6 +6,8 @@ import type { ReportApiResponse } from "~/types";
 export const useReports = () => {
   const perPage = ref(12);
   const isRefreshing = ref(false);
+  const sortOrder = ref<"asc" | "desc">("asc"); // направление сортировки
+  const sortField = ref<"period" | "created_at">("period"); // поле сортировки
 
   const {
     callApi: loadReports,
@@ -28,20 +30,27 @@ export const useReports = () => {
     };
   };
 
+  const buildQueryParams = (page: number, perPageParam: number) => {
+    const params = new URLSearchParams({
+      page: page.toString(),
+      perPage: perPageParam.toString(),
+    });
+
+    params.append("sort[0][field]", sortField.value);
+    params.append("sort[0][ascending]", sortOrder.value);
+
+    return params.toString();
+  };
+
   const fetchReports = async (page = 1, perPageParam?: number) => {
     const headers = getContractIdHeaders();
+    const query = buildQueryParams(page, perPageParam ?? perPage.value);
 
     if (!apiResponse.value) {
-      await loadReports(
-        `/tenants/reports?page=${page}&perPage=${perPageParam ?? perPage.value}`,
-        { headers },
-      );
+      await loadReports(`/tenants/reports?${query}`, { headers });
     } else {
       isRefreshing.value = true;
-      await loadReports(
-        `/tenants/reports?page=${page}&perPage=${perPageParam ?? perPage.value}`,
-        { headers },
-      );
+      await loadReports(`/tenants/reports?${query}`, { headers });
       isRefreshing.value = false;
     }
   };
@@ -64,6 +73,21 @@ export const useReports = () => {
     await fetchReports();
   };
 
+  const toggleSortOrder = async (
+    order: "asc" | "desc" | "default",
+    page: number,
+  ) => {
+    if (order === "default") {
+      sortOrder.value = "asc"; // вернем значение по умолчанию
+      await fetchReports(page);
+      return;
+    }
+
+    sortOrder.value = order;
+
+    await fetchReports(page);
+  };
+
   return {
     perPage,
     isRefreshing,
@@ -74,5 +98,6 @@ export const useReports = () => {
     loadPage,
     refreshReports,
     handlePerPageChange,
+    toggleSortOrder,
   };
 };

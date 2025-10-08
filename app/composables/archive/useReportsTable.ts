@@ -42,7 +42,6 @@ interface UseReportsTableParams {
   downloadReport: (id: number) => Promise<void>;
   openCorrectionModal: (id: number) => void;
   confirmDeleteReport: (id: number) => void;
-  emitSortChange: (sorting: SortingState) => void;
   $style: Record<string, string>;
   navigateTo: (path: string) => void;
 }
@@ -58,23 +57,10 @@ export function useReportsTable({
   downloadReport,
   openCorrectionModal,
   confirmDeleteReport,
-  emitSortChange,
   $style,
   navigateTo,
 }: UseReportsTableParams) {
   const sorting = ref<SortingState>([]);
-
-  const sortedReports = computed(() => {
-    return [...reports.value].sort((a, b) => {
-      const aEndStr =
-        (a.period.split(" - ")[1] ?? a.period.split(" - ")[0]) || "";
-      const bEndStr =
-        (b.period.split(" - ")[1] ?? b.period.split(" - ")[0]) || "";
-      const dateA = new Date(aEndStr.replace(" ", "T")).getTime();
-      const dateB = new Date(bEndStr.replace(" ", "T")).getTime();
-      return dateB - dateA;
-    });
-  });
 
   const sortedHeaders = computed(() => {
     return headers.filter(
@@ -125,9 +111,9 @@ export function useReportsTable({
         size: 150,
         enableSorting: [
           "period",
-          "turnover_amount",
-          "turnover_fee",
-          "status",
+          // "turnover_amount",
+          // "turnover_fee",
+          // "status",
         ].includes(header.key),
       };
 
@@ -319,7 +305,7 @@ export function useReportsTable({
 
   const table = useVueTable({
     get data() {
-      return sortedReports.value;
+      return reports.value;
     },
     get columns() {
       return columns.value;
@@ -329,14 +315,9 @@ export function useReportsTable({
         return sorting.value;
       },
     },
-    onSortingChange: (updater) => {
-      sorting.value =
-        typeof updater === "function" ? updater(sorting.value) : updater;
-      emitSortChange(sorting.value);
-    },
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
   });
 
-  return { table, sorting, sortedReports };
+  return { table, sorting };
 }

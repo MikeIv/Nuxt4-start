@@ -381,6 +381,18 @@
     getTableData,
     setData,
   });
+
+  const handleNumberFocus = (
+    event: Event,
+    field: "amount_with_nds" | "amount_nds",
+    index: number,
+  ): void => {
+    const target = event.target as HTMLInputElement;
+    if (target.value === "0,00") {
+      target.value = "";
+      editableRows.value[index][field] = "";
+    }
+  };
 </script>
 
 <template>
@@ -442,6 +454,7 @@
             ]"
             @input="handleNumberInput($event, 'amount_with_nds', index)"
             @blur="handleNumberBlur('amount_with_nds', index)"
+            @focus="handleNumberFocus($event, 'amount_with_nds', index)"
           />
         </div>
         <div>
@@ -457,6 +470,7 @@
             ]"
             @input="handleNumberInput($event, 'amount_nds', index)"
             @blur="handleNumberBlur('amount_nds', index)"
+            @focus="handleNumberFocus($event, 'amount_nds', index)"
           />
         </div>
       </div>
