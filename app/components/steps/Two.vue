@@ -152,6 +152,16 @@
     navigateTo("/record/3");
   };
 
+  const hasDependentErrors = computed(() => {
+    const errors = kktTableRef.value?.dependentErrors || {};
+    return Object.values(errors).some((row) => row?.amount || row?.advance);
+  });
+
+  const hasNumberErrors = computed(() => {
+    const errors = kktTableRef.value?.numberErrors || {};
+    return Object.values(errors).some((msg) => !!msg); // если хоть одно сообщение есть
+  });
+
   const saveSuccess = ref(false);
   const saveSuccessMessage = ref("");
 
@@ -381,7 +391,7 @@
         <UTooltip :text="!isFormValid ? validationError : ''">
           <UButton
             class="steps-nav-btn solid"
-            :disabled="!isFormValid"
+            :disabled="!isFormValid || hasDependentErrors || hasNumberErrors"
             @click="validateAndNext"
           >
             Далее

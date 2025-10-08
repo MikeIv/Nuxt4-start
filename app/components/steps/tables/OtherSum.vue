@@ -1,5 +1,6 @@
 <script setup lang="ts">
   import type { FileData, OverSumTableRow } from "~/types/tables";
+  import { useNdsValidation } from "~/composables/tables/useNdsValidation";
 
   const stepTwoStore = useStepTwoStore();
 
@@ -90,6 +91,16 @@
     editableRows.value[index][field] = value;
     target.value = value;
 
+    if (
+      field === "amount_with_nds" &&
+      editableRows.value[index].amount_nds === "0,00"
+    ) {
+      editableRows.value[index].amount_nds = "";
+      if (value === "0,00" && !editableRows.value[index].amount_nds) {
+        editableRows.value[index].amount_nds = "0,00";
+      }
+    }
+
     markFieldAsModified(index, field);
     validateRow(index);
     emitUpdate();
@@ -118,6 +129,14 @@
           value = "0" + value;
         }
       }
+    }
+
+    if (
+      field === "amount_with_nds" &&
+      value === "0,00" &&
+      !editableRows.value[index].amount_nds
+    ) {
+      editableRows.value[index].amount_nds = "0,00";
     }
 
     editableRows.value[index][field] = value;
@@ -258,7 +277,6 @@
 
     editingNameIndex.value = newIndex;
     await nextTick();
-    nameInputRefs.value[newIndex]?.focus();
 
     tableMessage.value = "Основание добавлено";
     emitUpdate();
@@ -336,13 +354,9 @@
 
     const name = editableRows.value[index].name?.trim();
     if (!name) {
-      // Если имя пустое — оставляем фокус на input
-      editingNameIndex.value = index;
-      nextTick(() => nameInputRefs.value[index]?.focus());
-    } else {
-      // Если имя введено — закрываем редактирование
-      editingNameIndex.value = null;
+      validateRow(index);
     }
+    editingNameIndex.value = null;
 
     emitUpdate();
   };
@@ -409,6 +423,8 @@
       editableRows.value[index][field] = "";
     }
   };
+
+  const { getNdsError } = useNdsValidation(editableRows);
 </script>
 
 <template>
@@ -476,7 +492,7 @@
             @focus="handleNumberFocus($event, 'amount_with_nds', index)"
           />
         </div>
-        <div>
+        <div :class="$style.inputWrapper">
           <input
             type="text"
             :value="row.amount_nds"
@@ -484,13 +500,17 @@
             :class="[
               $style.inputField,
               {
-                [$style.errorInput]: shouldShowError(index, 'amount_nds'),
+                [$style.errorInput]:
+                  shouldShowError(index, 'amount_nds') || getNdsError(row),
               },
             ]"
             @input="handleNumberInput($event, 'amount_nds', index)"
             @blur="handleNumberBlur('amount_nds', index)"
             @focus="handleNumberFocus($event, 'amount_nds', index)"
           />
+          <div v-if="getNdsError(row)" :class="$style.errorMessage">
+            {{ getNdsError(row) }}
+          </div>
         </div>
       </div>
 
@@ -560,8 +580,39 @@
   }
 
   .errorInput {
-    border-color: var(--a-borderError) !important;
-    background-color: var(--a-bgErrorLight) !important;
+    border: 1px solid var(--a-borderError) !important;
+    border-radius: 0.25rem !important;
+    animation: pulse 1.5s infinite;
+    box-shadow: 0 0 4px 0 var(--a-borderError);
+  }
+
+  .inputWrapper {
+    position: relative;
+    display: inline-block;
+  }
+
+  .errorMessage {
+    position: absolute;
+    bottom: 100%;
+    left: 0;
+    background-color: var(--a-errorText);
+    color: var(--a-white);
+    font-size: rem(10);
+    padding: rem(2) rem(6);
+    border-radius: rem(4);
+    white-space: nowrap;
+    transform: translateY(-10px);
+    z-index: 10;
+
+    &::after {
+      content: "";
+      position: absolute;
+      top: 100%;
+      left: 10px;
+      border-width: 5px;
+      border-style: solid;
+      border-color: var(--a-errorText) transparent transparent transparent;
+    }
   }
 
   .name-input {
@@ -576,10 +627,17 @@
       outline: none;
       border-color: var(--a-borderAccent);
     }
+  }
 
-    &.errorInput {
-      border-color: var(--a-borderError) !important;
-      background-color: var(--a-bgErrorLight) !important;
+  @keyframes pulse {
+    0% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.7;
+    }
+    100% {
+      opacity: 1;
     }
   }
 </style>

@@ -1,5 +1,6 @@
 <script setup lang="ts">
   import type { FileData, NonCashTableRow } from "~/types/tables";
+  import { useNdsValidation } from "~/composables/tables/useNdsValidation";
 
   const stepTwoStore = useStepTwoStore();
 
@@ -130,6 +131,16 @@
     editableRows.value[index][field] = value;
     target.value = value;
 
+    if (
+      field === "amount_with_nds" &&
+      editableRows.value[index].amount_nds === "0,00"
+    ) {
+      editableRows.value[index].amount_nds = "";
+      if (value === "0,00" && !editableRows.value[index].amount_nds) {
+        editableRows.value[index].amount_nds = "0,00";
+      }
+    }
+
     markFieldAsModified(index, field);
     validateRow(index);
     emitUpdate();
@@ -158,6 +169,14 @@
           value = "0" + value;
         }
       }
+    }
+
+    if (
+      field === "amount_with_nds" &&
+      value === "0,00" &&
+      !editableRows.value[index].amount_nds
+    ) {
+      editableRows.value[index].amount_nds = "0,00";
     }
 
     editableRows.value[index][field] = value;
@@ -199,10 +218,13 @@
       errors.push("amount_nds");
     }
 
+    if (amountWithNds && amountWithNds !== "0,00" && amountNds === "0,00") {
+      errors.push("amount_nds");
+    }
+
     const isNewRow = addedRowsIndices.value.includes(index) || row.isNew;
 
     if (isNewRow || index >= 3) {
-      // новые строки и все после 3-й — обязательны
       row.filesRequired = true;
       if (!name) errors.push("name");
       if (!hasFileIds) errors.push("files");
@@ -210,7 +232,6 @@
         errors.push("amount_with_nds");
       if (!amountNds || amountNds === "0,00") errors.push("amount_nds");
     } else {
-      // первые 3 строки — обязательны только при суммах или файлах
       const hasAmounts = amountWithNds !== "0,00" || amountNds !== "0,00";
       row.filesRequired = hasAmounts || hasFileIds;
 
@@ -393,6 +414,8 @@
       editableRows.value[index][field] = "";
     }
   };
+
+  const { getNdsError } = useNdsValidation(editableRows);
 </script>
 
 <template>
@@ -457,7 +480,7 @@
             @focus="handleNumberFocus($event, 'amount_with_nds', index)"
           />
         </div>
-        <div>
+        <div :class="$style.inputWrapper">
           <input
             type="text"
             :value="row.amount_nds"
@@ -465,13 +488,17 @@
             :class="[
               $style.inputField,
               {
-                [$style.errorInput]: shouldShowError(index, 'amount_nds'),
+                [$style.errorInput]:
+                  shouldShowError(index, 'amount_nds') || getNdsError(row),
               },
             ]"
             @input="handleNumberInput($event, 'amount_nds', index)"
             @blur="handleNumberBlur('amount_nds', index)"
             @focus="handleNumberFocus($event, 'amount_nds', index)"
           />
+          <div v-if="getNdsError(row)" :class="$style.errorMessage">
+            {{ getNdsError(row) }}
+          </div>
         </div>
       </div>
 
@@ -537,8 +564,39 @@
   }
 
   .errorInput {
-    border-color: var(--a-borderError) !important;
-    background-color: var(--a-bgErrorLight) !important;
+    border: 1px solid var(--a-borderError) !important;
+    border-radius: 0.25rem !important;
+    animation: pulse 1.5s infinite;
+    box-shadow: 0 0 4px 0 var(--a-borderError);
+  }
+
+  .inputWrapper {
+    position: relative;
+    display: inline-block;
+  }
+
+  .errorMessage {
+    position: absolute;
+    bottom: 100%;
+    left: 0;
+    background-color: var(--a-errorText);
+    color: var(--a-white);
+    font-size: rem(10);
+    padding: rem(2) rem(6);
+    border-radius: rem(4);
+    white-space: nowrap;
+    transform: translateY(-10px);
+    z-index: 10;
+
+    &::after {
+      content: "";
+      position: absolute;
+      top: 100%;
+      left: 10px;
+      border-width: 5px;
+      border-style: solid;
+      border-color: var(--a-errorText) transparent transparent transparent;
+    }
   }
 
   .name-input {
@@ -553,10 +611,17 @@
       outline: none;
       border-color: var(--a-borderAccent);
     }
+  }
 
-    &.errorInput {
-      border-color: var(--a-borderError) !important;
-      background-color: var(--a-bgErrorLight) !important;
+  @keyframes pulse {
+    0% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.7;
+    }
+    100% {
+      opacity: 1;
     }
   }
 </style>

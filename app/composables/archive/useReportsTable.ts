@@ -24,6 +24,7 @@ interface Report {
   can_edit: boolean;
   can_download_documents: boolean;
   can_request_correction: boolean;
+  submitted_at: string;
 }
 
 interface UseReportsTableParams {
@@ -293,6 +294,21 @@ export function useReportsTable({
                 },
                 h("span", { class: $style.editText }, "Запросить"),
               );
+            },
+          };
+
+        case "submitted_at":
+          return {
+            ...baseColumn,
+            size: 120,
+            cell: ({ row }: { row: { original: Report } }) => {
+              const dateStr = row.original.submitted_at; // "2025-10-08T10:41:37.000000Z"
+              if (!dateStr) return "";
+              const date = new Date(dateStr);
+              const day = String(date.getDate()).padStart(2, "0");
+              const month = String(date.getMonth() + 1).padStart(2, "0"); // месяцы с 0
+              const year = date.getFullYear();
+              return `${day}.${month}.${year}`; // 08.10.2025
             },
           };
         default:

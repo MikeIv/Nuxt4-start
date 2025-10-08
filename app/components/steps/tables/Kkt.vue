@@ -54,6 +54,9 @@
   const addedRowsIndices = ref<number[]>([]);
   const tableMessage = ref("");
   const showRemoveButton = ref(false);
+  const dependentErrors = ref<
+    Record<number, { amount?: string; advance?: string }>
+  >({});
 
   const { loading: fileLoading } = useSaveFile();
 
@@ -232,6 +235,14 @@
     { deep: true },
   );
 
+  watch(
+    editableRows,
+    (rows) => {
+      rows.forEach((row, index) => validateDependentFields(row, index));
+    },
+    { deep: true, immediate: true },
+  );
+
   const getTableData = () => ({
     rows: [...editableRows.value],
     totals: {
@@ -247,6 +258,8 @@
   defineExpose({
     getTableData,
     setData,
+    dependentErrors,
+    numberErrors,
   });
 
   const registrationNumberInputs = ref<(HTMLInputElement | null)[]>([]);
@@ -256,6 +269,50 @@
     index: number,
   ) => {
     registrationNumberInputs.value[index] = el;
+  };
+
+  const validateDependentFields = (row: KktTableRow, index: number) => {
+    const errors: { amount?: string; advance?: string } = {};
+
+    const calculatedWithNds = calculateWithNds(row);
+    // Проверка amount_without_advance_nds
+    const amountNds = row.amount_without_advance_nds
+      ?.toString()
+      .replace(",", ".");
+    if (amountNds) {
+      const amountWithoutAdvanceNds = parseFloat(amountNds);
+      if (calculatedWithNds > 0 && amountWithoutAdvanceNds === 0) {
+        errors.amount = "НДС не может быть равен нулю";
+      } else if (
+        amountWithoutAdvanceNds >= calculatedWithNds &&
+        calculatedWithNds > 0
+      ) {
+        errors.amount = "НДС не может быть больше суммы с НДС";
+      }
+    }
+
+    // Проверка advance_without_certificates_nds
+    const advanceWithNds = row.advance_without_certificates_with_nds
+      ?.toString()
+      .replace(",", ".");
+    const advanceNds = row.advance_without_certificates_nds
+      ?.toString()
+      .replace(",", ".");
+
+    if (advanceNds && advanceWithNds) {
+      const advanceWithAdvanceNds = parseFloat(advanceWithNds);
+      const advanceWithoutNds = parseFloat(advanceNds);
+      if (advanceWithAdvanceNds > 0 && advanceWithoutNds === 0) {
+        errors.advance = "НДС не может быть равен нулю";
+      } else if (
+        advanceWithoutNds >= advanceWithAdvanceNds &&
+        advanceWithAdvanceNds > 0
+      ) {
+        errors.advance = "НДС не может быть больше суммы с НДС";
+      }
+    }
+
+    dependentErrors.value[index] = errors;
   };
 </script>
 
@@ -309,7 +366,7 @@
           @blur="validateKktNumber(index)"
           @keypress="row.isNew && preventNonNumericInput($event)"
         />
-        <div v-if="shouldShowErrorKkt(index)" :class="$style.errorMessage">
+        <div v-if="shouldShowErrorKkt(index)" :class="$style.errorMessageReg">
           {{ kktErrors[index] }}
         </div>
       </div>
@@ -334,7 +391,7 @@
         />
         <div
           v-if="shouldShowError(index, 'start_meter_reading')"
-          :class="$style.errorMessage"
+          :class="$style.errorMessageReg"
         >
           {{ numberErrors[index] }}
         </div>
@@ -357,7 +414,7 @@
         />
         <div
           v-if="shouldShowError(index, 'end_meter_reading')"
-          :class="$style.errorMessage"
+          :class="$style.errorMessageReg"
         >
           {{ numberErrors[index] }}
         </div>
@@ -367,27 +424,34 @@
           <span>{{ calculateWithNds(row).toFixed(2).replace(".", ",") }}</span>
         </div>
         <div :class="$style.subCell">
-          <input
-            type="text"
-            :value="row.amount_without_advance_nds"
-            placeholder="0,00"
-            required
-            :class="[
-              $style.inputField,
-              {
-                [$style.errorInput]: shouldShowError(
-                  index,
-                  'amount_without_advance_nds',
-                ),
-                [$style.requiredField]:
-                  fieldValidations['amount_without_advance_nds']?.required,
-              },
-            ]"
-            @input="
-              handleNumberInput($event, 'amount_without_advance_nds', index)
-            "
-            @blur="handleNumberBlur('amount_without_advance_nds', index)"
-          />
+          <div :class="$style.inputWrapper">
+            <input
+              type="text"
+              :value="row.amount_without_advance_nds"
+              placeholder="0,00"
+              required
+              :class="[
+                $style.inputField,
+                {
+                  [$style.errorInput]:
+                    shouldShowError(index, 'amount_without_advance_nds') ||
+                    dependentErrors[index]?.amount,
+                  [$style.requiredField]:
+                    fieldValidations['amount_without_advance_nds']?.required,
+                },
+              ]"
+              @input="
+                handleNumberInput($event, 'amount_without_advance_nds', index)
+              "
+              @blur="handleNumberBlur('amount_without_advance_nds', index)"
+            />
+            <div
+              v-if="dependentErrors[index]?.amount"
+              :class="$style.errorMessage"
+            >
+              {{ dependentErrors[index].amount }}
+            </div>
+          </div>
         </div>
       </div>
       <div class="cell" :class="$style.cellRow">
@@ -421,7 +485,7 @@
             "
           />
         </div>
-        <div>
+        <div :class="$style.inputWrapper">
           <input
             type="text"
             :value="row.advance_without_certificates_nds"
@@ -430,10 +494,9 @@
             :class="[
               $style.inputField,
               {
-                [$style.errorInput]: shouldShowError(
-                  index,
-                  'advance_without_certificates_nds',
-                ),
+                [$style.errorInput]:
+                  shouldShowError(index, 'advance_without_certificates_nds') ||
+                  dependentErrors[index]?.advance,
                 [$style.requiredField]:
                   fieldValidations['advance_without_certificates_nds']
                     ?.required,
@@ -448,6 +511,12 @@
             "
             @blur="handleNumberBlur('advance_without_certificates_nds', index)"
           />
+          <div
+            v-if="dependentErrors[index]?.advance"
+            :class="$style.errorMessage"
+          >
+            {{ dependentErrors[index].advance }}
+          </div>
         </div>
       </div>
       <div class="cell body-cell">
@@ -553,7 +622,50 @@
     box-shadow: 0 0 4px 0 var(--a-borderError);
   }
 
+  .inputWrapper {
+    position: relative;
+    display: inline-block;
+  }
+
   .errorMessage {
+    position: absolute;
+    bottom: 100%;
+    left: 0;
+    background-color: var(--a-errorText);
+    color: var(--a-white);
+    font-size: rem(10);
+    padding: rem(2) rem(6);
+    border-radius: rem(4);
+    white-space: nowrap;
+    transform: translateY(-10px);
+    z-index: 10;
+
+    &::after {
+      content: "";
+      position: absolute;
+      top: 100%;
+      left: 10px;
+      border-width: 5px;
+      border-style: solid;
+      border-color: var(--a-errorText) transparent transparent transparent;
+    }
+  }
+
+  .name-input {
+    width: 100%;
+    padding: 0.25rem 0.375rem;
+    border: 1px solid var(--a-borderAccentLight);
+    background-color: var(--a-mainBg);
+    border-radius: 0.25rem;
+    box-sizing: border-box;
+
+    &:focus {
+      outline: none;
+      border-color: var(--a-borderAccent);
+    }
+  }
+
+  .errorMessageReg {
     color: var(--a-errorText);
     font-size: rem(10);
     margin-top: rem(4);
@@ -582,18 +694,6 @@
     }
     50% {
       opacity: 0.7;
-    }
-    100% {
-      opacity: 1;
-    }
-  }
-
-  @keyframes errorInput {
-    0% {
-      opacity: 1;
-    }
-    50% {
-      opacity: 0.1;
     }
     100% {
       opacity: 1;

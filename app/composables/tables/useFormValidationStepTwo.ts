@@ -71,6 +71,8 @@ export const useFormValidation = (
       return null;
     };
 
+    const parseAmount = (value: string) => parseFloat(value.replace(",", "."));
+
     const cashKktInvalid = tablesData.cashKkt.rows.some((row, index) => {
       const amountWithNdsFilled =
         row.amount_with_nds && row.amount_with_nds !== "0,00";
@@ -81,7 +83,14 @@ export const useFormValidation = (
       const nameFilled = row.name && row.name.trim() !== "";
       const hasFiles = (row.file_ids?.length ?? 0) > 0;
 
-      if (index < 4) {
+      if (
+        parseAmount(row.amount_with_nds) > 0 &&
+        parseAmount(row.amount_nds) >= parseAmount(row.amount_with_nds)
+      ) {
+        return true;
+      }
+
+      if (index <= 4) {
         const isEmptyRowTab2 =
           !amountWithNdsFilled &&
           !amountNdsFilled &&
@@ -89,7 +98,7 @@ export const useFormValidation = (
           !hasFiles;
         if (isEmptyRowTab2) return false; // полностью пустая строка игнорируется
 
-        // Если 3-я колонка заполнена, все остальные поля обязательны
+        // Если 4-я колонка заполнена, все остальные поля обязательны
         if (settlementFilled) {
           if (
             !amountWithNdsFilled ||
@@ -136,6 +145,13 @@ export const useFormValidation = (
       const nameFilled = row.name && row.name.trim() !== "";
       const hasFiles = (row.file_ids?.length ?? 0) > 0;
 
+      if (
+        parseAmount(row.amount_with_nds) > 0 &&
+        parseAmount(row.amount_nds) >= parseAmount(row.amount_with_nds)
+      ) {
+        return true;
+      }
+
       if (index < 3) {
         const isEmptyRowTab3 =
           !amountNdsFilled && !amountWithNdsFilled && !hasFiles;
@@ -159,9 +175,12 @@ export const useFormValidation = (
     const otherSumInvalid = tablesData.otherSum.rows.some(
       (row) =>
         !row.name ||
-        isNaN(parseFloat(row.amount_with_nds)) ||
-        isNaN(parseFloat(row.amount_nds)) ||
-        (row.file_ids?.length ?? 0) === 0,
+        isNaN(parseAmount(row.amount_with_nds)) ||
+        parseAmount(row.amount_with_nds) <= 0 ||
+        isNaN(parseAmount(row.amount_nds)) ||
+        parseAmount(row.amount_nds) <= 0 ||
+        (row.file_ids?.length ?? 0) === 0 ||
+        parseAmount(row.amount_nds) >= parseAmount(row.amount_with_nds),
     );
 
     if (otherSumInvalid) {
