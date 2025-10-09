@@ -191,8 +191,13 @@
     advance_without_certificates_nds: { required: true, min: 0 },
   } as const;
 
-  const { handleNumberInput, handleNumberBlur, shouldShowError } =
-    useNumberFields(editableRows, numberErrors, fieldValidations);
+  const {
+    handleNumberInput,
+    handleNumberBlur,
+    shouldShowError,
+    displayValues,
+    formatNumberDisplay,
+  } = useNumberFields(editableRows, numberErrors, fieldValidations);
 
   const { handleFileUploaded, handleFileRemoved } =
     useFileHandling<KktTableRow>({
@@ -372,7 +377,9 @@
       </div>
       <div class="cell body-cell">
         <input
-          :value="row.start_meter_reading"
+          :value="
+            displayValues[index]?.start_meter_reading || row.start_meter_reading
+          "
           placeholder="0,00"
           required
           :class="[
@@ -398,7 +405,9 @@
       </div>
       <div class="cell body-cell">
         <input
-          :value="row.end_meter_reading"
+          :value="
+            displayValues[index]?.end_meter_reading || row.end_meter_reading
+          "
           placeholder="0,00"
           required
           :class="[
@@ -421,13 +430,20 @@
       </div>
       <div class="cell" :class="$style.cellRow">
         <div :class="$style.subCell">
-          <span>{{ calculateWithNds(row).toFixed(2).replace(".", ",") }}</span>
+          <span>{{
+            formatNumberDisplay(
+              calculateWithNds(row).toFixed(2).replace(".", ","),
+            )
+          }}</span>
         </div>
         <div :class="$style.subCell">
           <div :class="$style.inputWrapper">
             <input
               type="text"
-              :value="row.amount_without_advance_nds"
+              :value="
+                displayValues[index]?.amount_without_advance_nds ||
+                row.amount_without_advance_nds
+              "
               placeholder="0,00"
               required
               :class="[
@@ -458,7 +474,10 @@
         <div>
           <input
             type="text"
-            :value="row.advance_without_certificates_with_nds"
+            :value="
+              displayValues[index]?.advance_without_certificates_with_nds ||
+              row.advance_without_certificates_with_nds
+            "
             placeholder="0,00"
             required
             :class="[
@@ -488,7 +507,10 @@
         <div :class="$style.inputWrapper">
           <input
             type="text"
-            :value="row.advance_without_certificates_nds"
+            :value="
+              displayValues[index]?.advance_without_certificates_nds ||
+              row.advance_without_certificates_nds
+            "
             placeholder="0,00"
             required
             :class="[

@@ -257,14 +257,16 @@
             <template v-else>
               <div :class="$style.tableCell">
                 {{
-                  row.with_nds ? formatCurrency(parseFloat(row.with_nds)) : ""
+                  row.with_nds
+                    ? formatCurrency(parseFloat(row.with_nds))
+                    : "0 ₽"
                 }}
               </div>
               <div :class="$style.tableCell">
                 {{
                   row.without_nds
                     ? formatCurrency(parseFloat(row.without_nds))
-                    : ""
+                    : "0 ₽"
                 }}
               </div>
             </template>
@@ -277,7 +279,7 @@
       <template #back>
         <UButton
           class="steps-nav-btn ghost"
-          :disabled="reportSaved"
+          :disabled="reportSaved || isSaving"
           @click="handleBack"
         >
           Назад
@@ -305,7 +307,6 @@
             v-if="saveSuccess"
             class="flex items-center text-green-600 text-sm font-medium ml-2"
           >
-            <UIcon name="i-heroicons-check-circle" class="w-5 h-5 mr-1" />
             {{ saveSuccessMessage }}
           </div>
         </transition>

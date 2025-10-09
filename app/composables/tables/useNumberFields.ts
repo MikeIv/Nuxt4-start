@@ -13,20 +13,41 @@ type ValidationRules = {
   customValidator?: (value: string) => string | null;
 };
 
+type NumberRow = Record<NumberField, string>;
+
 export const useNumberFields = (
-  editableRows: Ref<unknown[]>,
+  editableRows: Ref<NumberRow[]>,
   numberErrors: Ref<Record<number, string>>,
   fieldValidations: Partial<Record<NumberField, ValidationRules>> = {},
 ) => {
-  const formatNumberInput = (value: string): string => {
-    let cleaned = value.replace(/[^\d,-]/g, "");
+  const displayValues = ref<
+    Record<number, Partial<Record<NumberField, string>>>
+  >({});
 
-    const minusIndex = cleaned.indexOf("-");
-    if (minusIndex > 0) {
-      cleaned = cleaned.replace(/-/g, "");
-      cleaned = "-" + cleaned;
-    } else if (minusIndex === 0) {
-      cleaned = "-" + cleaned.replace(/-/g, "");
+  const formatNumberDisplay = (value: string): string => {
+    if (!value) return "";
+
+    // Если пользователь только начал вводить запятую, не теряем её
+    if (value.endsWith(",")) {
+      const integerPart = value
+        .slice(0, -1)
+        .replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+      return `${integerPart},`;
+    }
+
+    const [integerPart, decimalPart] = value.split(",");
+    const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+
+    return decimalPart !== undefined
+      ? `${formattedInteger},${decimalPart}`
+      : formattedInteger;
+  };
+
+  const formatNumberInput = (value: string): string => {
+    let cleaned = value.replace(/[^\d,]/g, "");
+
+    if (cleaned.startsWith(",")) {
+      cleaned = cleaned.replace(/^,/, "");
     }
 
     const commaIndex = cleaned.indexOf(",");
@@ -66,12 +87,23 @@ export const useNumberFields = (
     const target = event.target as HTMLInputElement;
     let value = target.value;
 
+    const selectionStart = target.selectionStart;
+
     value = formatNumberInput(value);
 
     editableRows.value[index][field] = value;
-    target.value = value;
 
-    clearFieldError(index);
+    const display = formatNumberDisplay(value);
+
+    if (!displayValues.value[index]) displayValues.value[index] = {};
+    displayValues.value[index][field] = display;
+
+    target.value = display;
+
+    const newCursorPos = Math.min(selectionStart ?? 0, display.length);
+    target.setSelectionRange(newCursorPos, newCursorPos);
+
+    clearFieldError(index, field);
   };
 
   /**
@@ -83,6 +115,9 @@ export const useNumberFields = (
     // Форматируем значение при потере фокуса
     value = formatNumberBlur(value);
     editableRows.value[index][field] = value;
+
+    if (!displayValues.value[index]) displayValues.value[index] = {};
+    displayValues.value[index][field] = formatNumberDisplay(value);
 
     validateField(field, index);
 
@@ -119,7 +154,7 @@ export const useNumberFields = (
       return false;
     }
 
-    clearFieldError(index);
+    clearFieldError(index, field);
     return true;
   };
 
@@ -144,13 +179,25 @@ export const useNumberFields = (
           numberErrors.value[index] ===
           "Начальное значение не может быть больше конечного"
         ) {
-          clearFieldError(index);
+          clearFieldError(index, "start_meter_reading");
         }
       }
     }
   };
 
-  const clearFieldError = (index: number): void => {
+  const clearFieldError = (index: number, field?: NumberField): void => {
+    if (!field) return; // очищаем только конкретное поле
+    const currentError = numberErrors.value[index];
+
+    // Если ошибка про показания счётчиков — не сбрасываем при вводе в другом поле
+    if (
+      field !== "start_meter_reading" &&
+      field !== "end_meter_reading" &&
+      currentError === "Начальное значение не может быть больше конечного"
+    ) {
+      return;
+    }
+
     numberErrors.value[index] = undefined;
   };
 
@@ -171,5 +218,7 @@ export const useNumberFields = (
     handleNumberBlur,
     shouldShowError,
     validateField,
+    displayValues,
+    formatNumberDisplay,
   };
 };

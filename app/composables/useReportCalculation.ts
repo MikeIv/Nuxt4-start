@@ -32,12 +32,22 @@ export const useReportCalculation = () => {
   ): number => {
     if (value === null || value === undefined || value === "") return 0.0;
 
-    const normalized = value.toString().replace(",", ".").trim();
-    const parsed = Number(normalized);
+    // Приводим к строке
+    let s = String(value);
 
+    s = s.replace(/\u00A0/g, " ").replace(/\s+/g, "");
+
+    s = s.replace(/,/g, ".");
+
+    // Оставляем только цифры, минус и точку
+    s = s.replace(/[^0-9.]/g, "");
+
+    if (s === "" || s === ".") return 0.0;
+
+    const parsed = Number(s);
     if (isNaN(parsed)) return 0.0;
 
-    // Возвращаем число с фиксированной точностью (2 знака после запятой)
+    // Возвращаем число с 2 знаками (как number, не как строку)
     return Number(parsed.toFixed(2));
   };
 
@@ -153,7 +163,7 @@ export const useReportCalculation = () => {
         report: {
           visitors_count: stepOneStore.visitorsCount || 0,
           receipts_count: stepOneStore.checksCount || 0,
-          comparison_base: baseComparisonValue.value || 0,
+          comparison_base: normalizeNumber(baseComparisonValue.value) || 0,
           rent_percentage: rentPercentage.value || 0,
           kkts: stepTwoStore.kkt.rows.map((row) => ({
             name: row.name || "",
