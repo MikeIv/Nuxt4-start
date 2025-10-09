@@ -85,22 +85,47 @@ export const useNumberFields = (
     index: number,
   ): void => {
     const target = event.target as HTMLInputElement;
-    let value = target.value;
+    const rawValue = target.value;
+    const cursorPos = target.selectionStart || 0;
 
-    const selectionStart = target.selectionStart;
+    // чистим значение
+    let cleanedValue = formatNumberInput(rawValue);
+    if (cleanedValue.startsWith(",")) cleanedValue = cleanedValue.slice(1);
 
-    value = formatNumberInput(value);
+    // ограничиваем 2 знака после запятой
+    const commaIndex = cleanedValue.indexOf(",");
+    if (commaIndex !== -1) {
+      const integerPart = cleanedValue.slice(0, commaIndex);
+      let decimalPart = cleanedValue.slice(commaIndex + 1).replace(/,/g, "");
+      if (decimalPart.length > 2) decimalPart = decimalPart.slice(0, 2);
+      cleanedValue = integerPart + "," + decimalPart;
+    }
 
-    editableRows.value[index][field] = value;
+    editableRows.value[index][field] = cleanedValue;
 
-    const display = formatNumberDisplay(value);
-
+    const display = formatNumberDisplay(cleanedValue);
     if (!displayValues.value[index]) displayValues.value[index] = {};
     displayValues.value[index][field] = display;
 
-    target.value = display;
+    // пересчитываем курсор
+    let digitsBeforeCursor = 0;
+    for (let i = 0; i < cursorPos; i++) {
+      if (/[0-9]/.test(rawValue[i])) digitsBeforeCursor++;
+      // если пользователь ввел запятую в конце, считаем её как позицию
+      if (rawValue[i] === "," && i === cursorPos - 1) digitsBeforeCursor++;
+    }
 
-    const newCursorPos = Math.min(selectionStart ?? 0, display.length);
+    let newCursorPos = 0;
+    let digitCount = 0;
+    while (digitCount < digitsBeforeCursor && newCursorPos < display.length) {
+      if (/[0-9]/.test(display[newCursorPos])) digitCount++;
+      newCursorPos++;
+    }
+
+    // если пользователь только что ввел запятую, ставим курсор после неё
+    if (rawValue[cursorPos - 1] === ",") newCursorPos++;
+
+    target.value = display;
     target.setSelectionRange(newCursorPos, newCursorPos);
 
     clearFieldError(index, field);

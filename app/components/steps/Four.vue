@@ -307,6 +307,7 @@
             v-if="saveSuccess"
             class="flex items-center text-green-600 text-sm font-medium ml-2"
           >
+            <UIcon name="i-heroicons-check-circle" class="w-5 h-5 mr-1" />
             {{ saveSuccessMessage }}
           </div>
         </transition>

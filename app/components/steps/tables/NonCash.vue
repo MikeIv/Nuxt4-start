@@ -106,40 +106,115 @@
     emitUpdate();
   };
 
+  type NumberField = "amount_with_nds" | "amount_nds";
+
+  const displayValues = ref<
+    Record<NumberField, Partial<Record<number, string>>>
+  >({ amount_with_nds: {}, amount_nds: {} });
+
+  const formatNumberDisplay = (value: string): string => {
+    if (!value) return "";
+
+    // Если пользователь только начал вводить запятую, не теряем её
+    if (value.endsWith(",")) {
+      const integerPart = value
+        .slice(0, -1)
+        .replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+      return `${integerPart},`;
+    }
+
+    const [integerPart, decimalPart] = value.split(",");
+    const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+
+    return decimalPart !== undefined
+      ? `${formattedInteger},${decimalPart}`
+      : formattedInteger;
+  };
+
+  const formatNumberInput = (value: string): string => {
+    let cleaned = value.replace(/[^\d,]/g, "");
+
+    if (cleaned.startsWith(",")) {
+      cleaned = cleaned.replace(/^,/, "");
+    }
+
+    const commaIndex = cleaned.indexOf(",");
+    if (commaIndex !== -1) {
+      const integerPart = cleaned.slice(0, commaIndex);
+      let decimalPart = cleaned.slice(commaIndex + 1).replace(/,/g, "");
+
+      if (decimalPart.length > 2) {
+        decimalPart = decimalPart.slice(0, 2);
+      }
+
+      cleaned = integerPart + "," + decimalPart;
+    }
+
+    return cleaned;
+  };
+
+  const formatNumberBlur = (value: string): string => {
+    if (!value) return "";
+
+    // Добавляем .00 если нет десятичной части
+    if (!value.includes(",")) {
+      return `${value},00`;
+    }
+
+    // Дополняем до 2 знаков после запятой
+    const [integer, decimal] = value.split(",");
+    const paddedDecimal = (decimal || "").padEnd(2, "0").slice(0, 2);
+    return `${integer},${paddedDecimal}`;
+  };
+
   const handleNumberInput = (
     event: Event,
     field: "amount_with_nds" | "amount_nds",
     index: number,
   ): void => {
     const target = event.target as HTMLInputElement;
-    let value = target.value;
+    const rawValue = target.value;
+    const cursorPos = target.selectionStart || 0;
 
-    value = value.replace(/[^\d,]/g, "");
+    // чистим значение
+    let cleanedValue = formatNumberInput(rawValue);
+    if (cleanedValue.startsWith(",")) cleanedValue = cleanedValue.slice(1);
 
-    const commaParts = value.split(",");
-    if (commaParts.length > 2) {
-      value = commaParts[0] + "," + commaParts.slice(1).join("");
+    // ограничиваем 2 знака после запятой
+    const commaIndex = cleanedValue.indexOf(",");
+    if (commaIndex !== -1) {
+      const integerPart = cleanedValue.slice(0, commaIndex);
+      let decimalPart = cleanedValue.slice(commaIndex + 1).replace(/,/g, "");
+      if (decimalPart.length > 2) decimalPart = decimalPart.slice(0, 2);
+      cleanedValue = integerPart + "," + decimalPart;
     }
 
-    if (value.includes(",")) {
-      const [integer, decimal] = value.split(",");
-      if (decimal && decimal.length > 2) {
-        value = integer + "," + decimal.slice(0, 2);
-      }
+    editableRows.value[index][field] = cleanedValue;
+
+    const display = formatNumberDisplay(cleanedValue);
+    if (!displayValues.value[index]) displayValues.value[index] = {};
+    displayValues.value[index][field] = display;
+
+    // пересчитываем курсор
+    let digitsBeforeCursor = 0;
+    for (let i = 0; i < cursorPos; i++) {
+      if (/[0-9]/.test(rawValue[i])) digitsBeforeCursor++;
+      // если пользователь ввел запятую в конце, считаем её как позицию
+      if (rawValue[i] === "," && i === cursorPos - 1) digitsBeforeCursor++;
     }
 
-    editableRows.value[index][field] = value;
-    target.value = value;
-
-    if (
-      field === "amount_with_nds" &&
-      editableRows.value[index].amount_nds === "0,00"
-    ) {
-      editableRows.value[index].amount_nds = "";
-      if (value === "0,00" && !editableRows.value[index].amount_nds) {
-        editableRows.value[index].amount_nds = "0,00";
-      }
+    let newCursorPos = 0;
+    let digitCount = 0;
+    while (digitCount < digitsBeforeCursor && newCursorPos < display.length) {
+      if (/[0-9]/.test(display[newCursorPos])) digitCount++;
+      newCursorPos++;
     }
+
+    // если пользователь только что ввел запятую, ставим курсор после неё
+    if (rawValue[cursorPos - 1] === ",") newCursorPos++;
+
+    target.value = display;
+    target.setSelectionRange(newCursorPos, newCursorPos);
 
     markFieldAsModified(index, field);
     validateRow(index);
@@ -152,24 +227,16 @@
   ): void => {
     let value = editableRows.value[index][field];
 
-    if (!value || value === ",") {
+    if (!value || value.trim() === "") {
       value = "0,00";
     } else {
-      if (!value.includes(",")) {
-        value = value + ",00";
-      } else {
-        const [integer, decimal] = value.split(",");
-        const paddedDecimal = (decimal || "").padEnd(2, "0").slice(0, 2);
-        value = integer + "," + paddedDecimal;
-      }
-
-      if (value.startsWith("0") && value.length > 1 && value[1] !== ",") {
-        value = value.replace(/^0+/, "");
-        if (value === "" || value.startsWith(",")) {
-          value = "0" + value;
-        }
-      }
+      // иначе форматируем до 2 знаков после запятой
+      value = formatNumberBlur(value);
     }
+    editableRows.value[index][field] = value;
+
+    if (!displayValues.value[index]) displayValues.value[index] = {};
+    displayValues.value[index][field] = formatNumberDisplay(value);
 
     if (
       field === "amount_with_nds" &&
@@ -467,7 +534,9 @@
         <div>
           <input
             type="text"
-            :value="row.amount_with_nds"
+            :value="
+              displayValues[index]?.amount_with_nds || row.amount_with_nds
+            "
             placeholder="0,00"
             :class="[
               $style.inputField,
@@ -483,7 +552,7 @@
         <div :class="$style.inputWrapper">
           <input
             type="text"
-            :value="row.amount_nds"
+            :value="displayValues[index]?.amount_nds || row.amount_nds"
             placeholder="0,00"
             :class="[
               $style.inputField,
