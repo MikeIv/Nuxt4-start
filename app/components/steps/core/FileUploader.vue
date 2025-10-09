@@ -174,6 +174,7 @@
       background-color: var(--a-bgGrayLight);
       border-color: var(--a-errorText);
       animation: pulse 1.5s infinite;
+      box-shadow: 0 0 4px 0 var(--a-borderError);
     }
   }
 

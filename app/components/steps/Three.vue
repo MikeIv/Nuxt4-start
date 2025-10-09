@@ -143,7 +143,7 @@
 
     // Проверяем обязательные поля для таблицы иных сумм
     for (const [index, row] of otherAmountsData.rows.entries()) {
-      if (!row.name) {
+      if (!row.name || !row.amount_with_nds || !row.amount_nds || !row.files) {
         return {
           isValid: false,
           error: "Заполните все обязательные поля в таблице Иных сумм",
@@ -157,6 +157,25 @@
         return {
           isValid: false,
           error: `Для строки ${index + 1} в таблице Иных сумм необходимо заполнить описание, так как указана сумма`,
+        };
+      }
+
+      const parseAmount = (value: string) =>
+        parseFloat(value.replace(",", "."));
+
+      const otherSumInvalid =
+        !row.name ||
+        isNaN(parseAmount(row.amount_with_nds)) ||
+        parseAmount(row.amount_with_nds) <= 0 ||
+        isNaN(parseAmount(row.amount_nds)) ||
+        parseAmount(row.amount_nds) <= 0 ||
+        (row.file_ids?.length ?? 0) === 0 ||
+        parseAmount(row.amount_nds) >= parseAmount(row.amount_with_nds);
+
+      if (otherSumInvalid) {
+        return {
+          isValid: false,
+          error: "Значение НДС не может быть больше суммы с НДС или равно нулю",
         };
       }
     }
