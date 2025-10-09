@@ -20,7 +20,7 @@
 </script>
 
 <template>
-  <div>
+  <div :class="$style.bigWrapper">
     <div v-if="isLoading && !isRefreshing" :class="$style.overlay">
       Идет загрузка
       <span :class="$style.spinner" />
@@ -55,11 +55,21 @@
 </template>
 
 <style module lang="scss">
-  .wrapper,
+  .bigWrapper {
+    height: 100%;
+  }
+
+  .wrapper {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+
   .content {
     display: flex;
     flex-direction: column;
     overflow: auto;
+    height: 100%;
   }
 
   .overlay {

@@ -21,6 +21,7 @@
     can_edit: boolean;
     can_download_documents: boolean;
     can_request_correction: boolean;
+    submitted_at: string;
   }
 
   interface Props {
@@ -386,12 +387,12 @@
   .tableContainer {
     display: flex;
     flex-direction: column;
-    height: rem(680);
     overflow: hidden;
+    height: 100%;
   }
 
   .tableWrapper {
-    flex: 1;
+    flex: 1 1 auto;
     overflow: auto;
     position: relative;
 
@@ -422,10 +423,12 @@
   }
 
   .footer {
-    flex: 0;
+    flex: 0 0 auto;
     display: flex;
     align-items: center;
     margin-top: auto;
+    flex-shrink: 0;
+    position: static;
   }
 
   .footer > div:first-child {
