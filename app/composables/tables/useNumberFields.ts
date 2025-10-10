@@ -3,7 +3,11 @@ type NumberField =
   | "end_meter_reading"
   | "amount_without_advance_nds"
   | "advance_without_certificates_with_nds"
-  | "advance_without_certificates_nds";
+  | "advance_without_certificates_nds"
+  | "returns_goods_services_with_nds"
+  | "returns_goods_services_nds"
+  | "gift_certificates_sold_with_nds"
+  | "gift_certificates_sold_nds";
 
 type ValidationRules = {
   min?: number;
@@ -107,6 +111,22 @@ export const useNumberFields = (
     if (!displayValues.value[index]) displayValues.value[index] = {};
     displayValues.value[index][field] = display;
 
+    if (field === "returns_goods_services_with_nds") {
+      const ndsValue = editableRows.value[index]?.returns_goods_services_nds;
+      if (ndsValue === "0,00") {
+        editableRows.value[index].returns_goods_services_nds = "";
+        if (!displayValues.value[index]) displayValues.value[index] = {};
+        displayValues.value[index].returns_goods_services_nds = "";
+      }
+    } else if (field === "gift_certificates_sold_with_nds") {
+      const ndsValue = editableRows.value[index]?.gift_certificates_sold_nds;
+      if (ndsValue === "0,00") {
+        editableRows.value[index].gift_certificates_sold_nds = "";
+        if (!displayValues.value[index]) displayValues.value[index] = {};
+        displayValues.value[index].gift_certificates_sold_nds = "";
+      }
+    }
+
     // пересчитываем курсор
     let digitsBeforeCursor = 0;
     for (let i = 0; i < cursorPos; i++) {
@@ -149,6 +169,21 @@ export const useNumberFields = (
     if (field === "start_meter_reading" || field === "end_meter_reading") {
       validateMeterReadings(index);
     }
+  };
+
+  const handleNumberBlurRefunds = (field: NumberField, index: number): void => {
+    let value = editableRows.value[index][field];
+
+    // Форматируем значение при потере фокуса
+
+    if (!value || value === ",") value = "0,00";
+    value = formatNumberBlur(value);
+    editableRows.value[index][field] = value;
+
+    if (!displayValues.value[index]) displayValues.value[index] = {};
+    displayValues.value[index][field] = formatNumberDisplay(value);
+
+    validateField(field, index);
   };
 
   const validateField = (field: NumberField, index: number): boolean => {
@@ -245,5 +280,6 @@ export const useNumberFields = (
     validateField,
     displayValues,
     formatNumberDisplay,
+    handleNumberBlurRefunds,
   };
 };

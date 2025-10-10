@@ -195,6 +195,15 @@
     if (!displayValues.value[index]) displayValues.value[index] = {};
     displayValues.value[index][field] = display;
 
+    if (field === "amount_with_nds") {
+      const ndsValue = editableRows.value[index].amount_nds;
+      if (ndsValue === "0,00") {
+        editableRows.value[index].amount_nds = "";
+        if (!displayValues.value[index]) displayValues.value[index] = {};
+        displayValues.value[index].amount_nds = "";
+      }
+    }
+
     // пересчитываем курсор
     let digitsBeforeCursor = 0;
     for (let i = 0; i < cursorPos; i++) {
@@ -476,10 +485,15 @@
     index: number,
   ): void => {
     const target = event.target as HTMLInputElement;
-    if (target.value === "0,00") {
+    if (target.value === "0,00" || target.value.trim() === "") {
       target.value = "";
       editableRows.value[index][field] = "";
+      if (!displayValues.value[index]) displayValues.value[index] = {};
+      displayValues.value[index][field] = "";
     }
+
+    validateRow(index);
+    emitUpdate();
   };
 
   const { getNdsError } = useNdsValidation(editableRows);
