@@ -10,6 +10,19 @@
   const { isCheckingPeriod, periodExists, checkPeriodExists } =
     usePeriodCheck(dateRangeRef);
 
+  const hasIncompleteDateRange = computed(() => {
+    const range = stepOne.dateRange;
+
+    if (!range || range.length < 2) return false;
+
+    const secondDate = formatDate(range[1]);
+
+    // если она равна "--.--.----", значит не выбрана
+    if (secondDate === "--.--.----") return true;
+
+    return false;
+  });
+
   const isFormValid = computed(() => {
     return (
       stepOne.dateRange?.length === 2 &&
@@ -98,11 +111,16 @@
       <template #next>
         <UButton
           class="steps-nav-btn solid"
-          :disabled="!isFormValid"
+          :disabled="!isFormValid || hasIncompleteDateRange || isCheckingPeriod"
           @click="validateAndNext"
         >
           Далее
         </UButton>
+        <span v-if="hasIncompleteDateRange" :class="$style.errorText">
+          Выберите период, состоящий из двух дат (например — 01.01.2020 -
+          01.01.2020)
+        </span>
+
         <span v-if="periodExists" :class="$style.errorText">
           Такой отчет уже существует. Поменяйте дату.
         </span>

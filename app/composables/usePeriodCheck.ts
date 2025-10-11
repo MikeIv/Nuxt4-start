@@ -53,11 +53,11 @@ export const usePeriodCheck = (dateRange: Ref<[Date, Date] | null>) => {
       }
     } catch (error) {
       console.error("Error checking period:", error);
-      toast.add({
-        title: "Ошибка",
-        description: "Не удалось проверить период",
-        color: "red",
-      });
+      // toast.add({
+      //   title: "Ошибка",
+      //   description: "Не удалось проверить период",
+      //   color: "red",
+      // });
     } finally {
       isCheckingPeriod.value = false;
     }
