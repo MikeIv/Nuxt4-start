@@ -86,18 +86,18 @@
   };
 
   const {
-    handleBaseInput,
-    formatBaseValue,
+    handleFormattedBaseInput,
+    handleFormattedBaseBlur,
     shouldShowBaseError,
     preventNonNumericInput,
     formatCurrency,
     savingReport,
-    isSaving,
+    isSavingReport,
     reportSaved,
     shouldResetOnLeave,
     sumWithVAT,
     sumWithoutVAT,
-    baseComparisonValue,
+    displayBaseValue,
     rentPercentage,
     percentageWithVAT,
     percentageWithoutVAT,
@@ -129,7 +129,7 @@
       },
       {
         name: "Процент с Денежного оборота, %",
-        sum: rentPercentage || "0",
+        rentPercentage: rentPercentage || "0",
       },
       {
         name: "Процент с Денежного оборота, руб",
@@ -156,6 +156,10 @@
       console.error("Ошибка при скачивании отчета:", error);
     }
   };
+
+  onMounted(async () => {
+    await loadReport("/tenants/reports/-1");
+  });
 </script>
 
 <template>
@@ -206,9 +210,7 @@
             >
               <div :class="[$style.tableCell, $style.sumCell]" :colspan="2">
                 <input
-                  :value="
-                    baseComparisonValue !== null ? baseComparisonValue : ''
-                  "
+                  :value="displayBaseValue"
                   type="text"
                   inputmode="numeric"
                   pattern="[0-9]*"
@@ -218,8 +220,8 @@
                     $style.baseInput,
                     { [$style.errorInput]: shouldShowBaseError() },
                   ]"
-                  @input="handleBaseInput($event)"
-                  @blur="formatBaseValue($event)"
+                  @input="handleFormattedBaseInput"
+                  @blur="handleFormattedBaseBlur"
                   @keypress="preventNonNumericInput"
                 />
                 <span>₽</span>
@@ -227,11 +229,7 @@
             </template>
             <template v-else-if="row.name === 'Процент с Денежного оборота, %'">
               <div :class="[$style.tableCell, $style.sumCell]" :colspan="2">
-                {{
-                  Number(row.sum) === Math.floor(row.sum)
-                    ? Math.floor(row.sum)
-                    : row.sum
-                }}%
+                {{ rentPercentage }}%
               </div>
             </template>
             <template
@@ -257,14 +255,16 @@
             <template v-else>
               <div :class="$style.tableCell">
                 {{
-                  row.with_nds ? formatCurrency(parseFloat(row.with_nds)) : ""
+                  row.with_nds
+                    ? formatCurrency(parseFloat(row.with_nds))
+                    : "0 ₽"
                 }}
               </div>
               <div :class="$style.tableCell">
                 {{
                   row.without_nds
                     ? formatCurrency(parseFloat(row.without_nds))
-                    : ""
+                    : "0 ₽"
                 }}
               </div>
             </template>
@@ -277,7 +277,7 @@
       <template #back>
         <UButton
           class="steps-nav-btn ghost"
-          :disabled="reportSaved"
+          :disabled="reportSaved || isSaving"
           @click="handleBack"
         >
           Назад
@@ -311,11 +311,11 @@
         </transition>
         <UButton
           class="steps-nav-btn ghost"
-          :loading="isSaving"
+          :loading="isSavingReport"
           :disabled="reportSaved || shouldShowBaseError()"
           @click="savingReport"
         >
-          {{ isSaving ? "Формирование..." : "Сформировать отчет" }}
+          {{ isSavingReport ? "Формирование..." : "Сформировать отчет" }}
         </UButton>
       </template>
       <template #next>
@@ -326,10 +326,45 @@
         >
           {{ downloadingReport ? "Скачивание..." : "Скачать отчет" }}
         </UButton>
+
+        <transition name="fade">
+          <div v-if="reportSaved" class="saved">
+            <p>Отчет успешно сформирован</p>
+          </div>
+        </transition>
       </template>
     </StepsCoreNavigation>
   </div>
 </template>
+
+<style scoped>
+  .saved {
+    padding: 2px 10px;
+    height: 25px;
+    background-color: var(--a-bgGreen);
+    color: var(--a-white);
+    border-radius: 5px;
+    font-size: 14px;
+    font-weight: 500;
+    text-align: center;
+  }
+
+  .fade-enter-from {
+    opacity: 0;
+  }
+
+  .fade-enter-to {
+    opacity: 1;
+  }
+
+  .fade-leave-from {
+    opacity: 1;
+  }
+
+  .fade-leave-to {
+    opacity: 0;
+  }
+</style>
 
 <style module lang="scss">
   .section {

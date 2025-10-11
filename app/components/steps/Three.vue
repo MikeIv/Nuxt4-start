@@ -290,6 +290,11 @@
     }
   };
 
+  const hasDependentErrors = computed(() => {
+    const errors = refundsTableRef.value?.dependentErrors || {};
+    return Object.values(errors).some((row) => row?.returnGoods || row?.gift);
+  });
+
   onMounted(async () => {
     try {
       await loadReport("/tenants/reports/-1");
@@ -422,7 +427,7 @@
         <UTooltip :text="!isFormValid ? validationError : ''">
           <UButton
             class="steps-nav-btn solid"
-            :disabled="!isFormValid"
+            :disabled="!isFormValid || hasDependentErrors"
             @click="validateAndNext"
           >
             Далее

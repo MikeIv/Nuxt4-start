@@ -14,7 +14,7 @@ export const useReportCalculation = () => {
     data: reportData,
     isLoading,
     error,
-  } = useApi<unknown>();
+  } = useApi<UserData>();
   const stepOneStore = useStepOneStore();
   const stepTwoStore = useStepTwoStore();
   const stepThreeStore = useStepThreeStore();
@@ -23,7 +23,7 @@ export const useReportCalculation = () => {
   const hasChanges = ref(false);
   const baseComparisonValue = ref<number | null>(null);
   const baseComparisonError = ref(true);
-  const isSaving = ref(false);
+  const isSavingReport = ref(false);
   const reportSaved = ref(false);
   const shouldResetOnLeave = ref(false);
 
@@ -32,12 +32,22 @@ export const useReportCalculation = () => {
   ): number => {
     if (value === null || value === undefined || value === "") return 0.0;
 
-    const normalized = value.toString().replace(",", ".").trim();
-    const parsed = Number(normalized);
+    // Приводим к строке
+    let s = String(value);
 
+    s = s.replace(/\u00A0/g, " ").replace(/\s+/g, "");
+
+    s = s.replace(/,/g, ".");
+
+    // Оставляем только цифры, минус и точку
+    s = s.replace(/[^0-9.]/g, "");
+
+    if (s === "" || s === ".") return 0.0;
+
+    const parsed = Number(s);
     if (isNaN(parsed)) return 0.0;
 
-    // Возвращаем число с фиксированной точностью (2 знака после запятой)
+    // Возвращаем число с 2 знаками (как number, не как строку)
     return Number(parsed.toFixed(2));
   };
 
@@ -45,7 +55,8 @@ export const useReportCalculation = () => {
   baseComparisonError.value = baseComparisonValue.value === null;
 
   const rentPercentage = computed(() => {
-    return reportData.value?.report?.rent_percentage ?? 0;
+    const raw = reportData.value?.report?.rent_percentage;
+    return raw ? parseFloat(raw) : 0;
   });
 
   const sumWithVAT = computed(() => {
@@ -67,14 +78,14 @@ export const useReportCalculation = () => {
   });
 
   const paymentWithVAT = computed(() => {
-    return Math.max(0, percentageWithVAT.value - baseComparisonValue.value);
+    return Math.max(
+      0,
+      (percentageWithoutVAT.value - baseComparisonValue.value) * 1.2,
+    );
   });
 
   const paymentWithoutVAT = computed(() => {
-    return Math.max(
-      0,
-      (percentageWithVAT.value - baseComparisonValue.value) / 1.2,
-    );
+    return Math.max(0, percentageWithoutVAT.value - baseComparisonValue.value);
   });
 
   const formatCurrency = (value: number | string): string => {
@@ -85,20 +96,6 @@ export const useReportCalculation = () => {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     }).format(isNaN(numValue) ? 0 : numValue);
-  };
-
-  const handleBaseInput = (event: Event) => {
-    const target = event.target as HTMLInputElement;
-    const cleanedValue: number | null = target.value.replace(/\D/g, "")
-      ? Number(target.value.replace(/\D/g, ""))
-      : null;
-
-    baseComparisonValue.value = cleanedValue;
-    stepFourStore.setBaseComparisonValue(cleanedValue); // сохраняем в store
-
-    baseComparisonError.value = cleanedValue === null;
-
-    console.log("baseComparisonValue:", baseComparisonValue.value);
   };
 
   // Блокировка ввода любых символов кроме цифр
@@ -118,9 +115,15 @@ export const useReportCalculation = () => {
 
     if (allowedKeys.includes(event.key)) return;
 
-    if (!/^\d$/.test(event.key)) {
-      event.preventDefault();
-    }
+    // Разрешаем цифры
+    if (/^\d$/.test(event.key)) return;
+
+    // Разрешаем одну запятую (если в строке ещё нет)
+    const target = event.target as HTMLInputElement;
+    if (event.key === "," && !target.value.includes(",")) return;
+
+    // Всё остальное блокируем
+    event.preventDefault();
   };
 
   // Проверка ошибки (для красного бордера)
@@ -128,17 +131,8 @@ export const useReportCalculation = () => {
     return baseComparisonError.value;
   };
 
-  const formatBaseValue = (event: FocusEvent) => {
-    const target = event.target as HTMLInputElement;
-    if (baseComparisonValue.value !== null) {
-      target.value = `${baseComparisonValue.value},00`;
-    } else {
-      target.value = "";
-    }
-  };
-
   const savingReport = async () => {
-    isSaving.value = true;
+    isSavingReport.value = true;
     try {
       if (!stepOneStore.dateRange || stepOneStore.dateRange.length < 2) {
         throw new Error("Не указан период отчета");
@@ -153,7 +147,7 @@ export const useReportCalculation = () => {
         report: {
           visitors_count: stepOneStore.visitorsCount || 0,
           receipts_count: stepOneStore.checksCount || 0,
-          comparison_base: baseComparisonValue.value || 0,
+          comparison_base: normalizeNumber(baseComparisonValue.value) || 0,
           rent_percentage: rentPercentage.value || 0,
           kkts: stepTwoStore.kkt.rows.map((row) => ({
             name: row.name || "",
@@ -237,7 +231,9 @@ export const useReportCalculation = () => {
         throw new Error("Не удалось сохранить отчет");
       }
 
-      reportSaved.value = true;
+      if (response) {
+        reportSaved.value = true;
+      }
       shouldResetOnLeave.value = true;
 
       return response;
@@ -245,14 +241,108 @@ export const useReportCalculation = () => {
       console.error("Ошибка при сохранении отчета:", err);
       throw err;
     } finally {
-      isSaving.value = false;
+      isSavingReport.value = false;
     }
+  };
+
+  const displayBaseValue = ref<string>("");
+
+  const formatNumberDisplay = (value: string): string => {
+    if (!value) return "";
+
+    // Если пользователь только начал вводить запятую, не теряем её
+    if (value.endsWith(",")) {
+      const integerPart = value
+        .slice(0, -1)
+        .replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+      return `${integerPart},`;
+    }
+
+    const [integerPart, decimalPart] = value.split(",");
+    const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+
+    return decimalPart !== undefined
+      ? `${formattedInteger},${decimalPart}`
+      : formattedInteger;
+  };
+
+  const formatNumberInput = (value: string): string => {
+    let cleaned = value.replace(/[^\d,]/g, "");
+    if (cleaned.startsWith(",")) cleaned = cleaned.slice(1);
+
+    const commaIndex = cleaned.indexOf(",");
+    if (commaIndex !== -1) {
+      const integerPart = cleaned.slice(0, commaIndex);
+      let decimalPart = cleaned.slice(commaIndex + 1).replace(/,/g, "");
+      if (decimalPart.length > 2) decimalPart = decimalPart.slice(0, 2);
+      cleaned = integerPart + "," + decimalPart;
+    }
+
+    return cleaned;
+  };
+
+  const formatNumberBlur = (value: string): string => {
+    if (!value) return "";
+    if (!value.includes(",")) return `${value},00`;
+
+    const [integer, decimal] = value.split(",");
+    const paddedDecimal = (decimal || "").padEnd(2, "0").slice(0, 2);
+    return `${integer},${paddedDecimal}`;
+  };
+
+  const handleFormattedBaseInput = (event: Event) => {
+    const target = event.target as HTMLInputElement;
+    const rawValue = target.value;
+    const cursorPos = target.selectionStart || 0;
+
+    // чистим значение
+    let cleanedValue = formatNumberInput(rawValue);
+    if (cleanedValue.startsWith(",")) cleanedValue = cleanedValue.slice(1);
+
+    // формат для отображения
+    const display = formatNumberDisplay(cleanedValue);
+
+    // считаем чистое значение для хранения
+    const numericValue = parseFloat(
+      cleanedValue.replace(/\s/g, "").replace(",", "."),
+    );
+    baseComparisonValue.value = isNaN(numericValue) ? null : numericValue;
+    stepFourStore.setBaseComparisonValue(baseComparisonValue.value);
+
+    // курсор
+    let digitsBeforeCursor = 0;
+    for (let i = 0; i < cursorPos; i++) {
+      if (/[0-9]/.test(rawValue[i])) digitsBeforeCursor++;
+      if (rawValue[i] === "," && i === cursorPos - 1) digitsBeforeCursor++;
+    }
+
+    let newCursorPos = 0;
+    let digitCount = 0;
+    while (digitCount < digitsBeforeCursor && newCursorPos < display.length) {
+      if (/[0-9]/.test(display[newCursorPos])) digitCount++;
+      newCursorPos++;
+    }
+
+    if (rawValue[cursorPos - 1] === ",") newCursorPos++;
+
+    target.value = display;
+    target.setSelectionRange(newCursorPos, newCursorPos);
+    displayBaseValue.value = target.value;
+
+    baseComparisonError.value = baseComparisonValue.value === null;
+  };
+
+  const handleFormattedBaseBlur = (event: FocusEvent) => {
+    const target = event.target as HTMLInputElement;
+    let value = target.value;
+    value = formatNumberBlur(value);
+    target.value = formatNumberDisplay(value);
   };
 
   return {
     hasChanges,
     baseComparisonValue,
-    isSaving,
+    isSavingReport,
     reportSaved,
     shouldResetOnLeave,
     sumWithVAT,
@@ -263,12 +353,14 @@ export const useReportCalculation = () => {
     paymentWithVAT,
     paymentWithoutVAT,
     formatCurrency,
-    handleBaseInput,
     preventNonNumericInput,
+    handleFormattedBaseInput,
+    handleFormattedBaseBlur,
+    formatNumberDisplay,
     shouldShowBaseError,
-    formatBaseValue,
     savingReport,
     loadReport,
+    displayBaseValue,
     isLoading,
     error,
     reportData,

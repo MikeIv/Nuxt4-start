@@ -20,6 +20,10 @@
     error: false,
   });
 
+  const dependentErrors = ref<
+    Record<number, { returnGoods?: string; gift?: string }>
+  >({});
+
   const emit = defineEmits<{
     (
       e: "update:totalSumm" | "update:totalVAT" | "update:tableData",
@@ -89,34 +93,6 @@
     };
   }
 
-  function handleNumberBlurWithDefault(
-    field: keyof RefundsTableRow,
-    index: number,
-  ) {
-    let value = editableRows.value[index][field] as string;
-
-    if (!value || value === ",") {
-      value = "0,00";
-    } else {
-      if (!value.includes(",")) {
-        value = value + ",00";
-      } else {
-        const [integer, decimal] = value.split(",");
-        const paddedDecimal = (decimal || "").padEnd(2, "0").slice(0, 2);
-        value = integer + "," + paddedDecimal;
-      }
-
-      if (value.startsWith("0") && value.length > 1 && value[1] !== ",") {
-        value = value.replace(/^0+/, "");
-        if (value === "" || value.startsWith(",")) {
-          value = "0" + value;
-        }
-      }
-    }
-
-    editableRows.value[index][field] = value;
-  }
-
   // --- Инициализация данных при загрузке ---
   watch(
     () => props.initialData,
@@ -143,11 +119,12 @@
     gift_certificates_sold_nds: { required: false, min: 0 },
   } as const;
 
-  const { handleNumberInput, shouldShowError } = useNumberFields(
-    editableRows,
-    numberErrors,
-    fieldValidations,
-  );
+  const {
+    handleNumberInput,
+    displayValues,
+    shouldShowError,
+    handleNumberBlurRefunds,
+  } = useNumberFields(editableRows, numberErrors, fieldValidations);
 
   const { handleFileUploaded, handleFileRemoved } =
     useFileHandling<RefundsTableRow>({
@@ -196,6 +173,7 @@
   defineExpose({
     getTableData,
     setData,
+    dependentErrors,
   });
 
   const handleNumberFocus = (
@@ -208,11 +186,70 @@
     index: number,
   ): void => {
     const target = event.target as HTMLInputElement;
-    if (target.value === "0,00") {
+    if (target.value === "0,00" || target.value.trim() === "") {
       target.value = "";
       editableRows.value[index][field] = "";
+      if (!displayValues.value[index]) displayValues.value[index] = {};
+      displayValues.value[index][field] = "";
     }
   };
+
+  const validateDependentFields = (row: RefundsTableRow, index: number) => {
+    const errors: { returnGoods?: string; gift?: string } = {};
+
+    const returnGoodsWithNds = row.returns_goods_services_with_nds
+      ?.toString()
+      .replace(",", ".");
+    const returnGoodsNds = row.returns_goods_services_nds
+      ?.toString()
+      .replace(",", ".");
+    if (returnGoodsNds) {
+      const returnGoodsWithNdsNumber = parseFloat(returnGoodsWithNds);
+      const retrunGoodsNdsNumber = parseFloat(returnGoodsNds);
+      if (returnGoodsWithNdsNumber > 0 && retrunGoodsNdsNumber === 0) {
+        errors.returnGoods = "НДС не может быть равен нулю";
+      } else if (
+        retrunGoodsNdsNumber >= returnGoodsWithNdsNumber &&
+        returnGoodsWithNdsNumber > 0
+      ) {
+        errors.returnGoods = "НДС не может быть больше суммы с НДС";
+      }
+    }
+
+    // Проверка advance_without_certificates_nds
+    const giftSertificatesWithNds = row.gift_certificates_sold_with_nds
+      ?.toString()
+      .replace(",", ".");
+    const giftSertificatesNds = row.gift_certificates_sold_nds
+      ?.toString()
+      .replace(",", ".");
+
+    if (giftSertificatesNds) {
+      const giftSertificatesWithNdsNumber = parseFloat(giftSertificatesWithNds);
+      const giftSertificatesNdsNumber = parseFloat(giftSertificatesNds);
+      if (
+        giftSertificatesWithNdsNumber > 0 &&
+        giftSertificatesNdsNumber === 0
+      ) {
+        errors.gift = "НДС не может быть равен нулю";
+      } else if (
+        giftSertificatesNdsNumber >= giftSertificatesWithNdsNumber &&
+        giftSertificatesWithNdsNumber > 0
+      ) {
+        errors.gift = "НДС не может быть больше суммы с НДС";
+      }
+    }
+
+    dependentErrors.value[index] = errors;
+  };
+
+  watch(
+    editableRows,
+    (rows) => {
+      rows.forEach((row, index) => validateDependentFields(row, index));
+    },
+    { deep: true, immediate: true },
+  );
 </script>
 
 <template>
@@ -261,7 +298,10 @@
         <div>
           <input
             type="text"
-            :value="row.returns_goods_services_with_nds"
+            :value="
+              displayValues[index]?.returns_goods_services_with_nds ||
+              row.returns_goods_services_with_nds
+            "
             placeholder="0,00"
             :class="[
               $style.inputField,
@@ -273,20 +313,14 @@
               },
             ]"
             @input="
-              (e) => {
-                const value = e.target.value.replace(',', '.');
-                handleNumberInput(
-                  { target: { value } },
-                  'returns_goods_services_with_nds',
-                  index,
-                );
-              }
-            "
-            @blur="
-              handleNumberBlurWithDefault(
+              handleNumberInput(
+                $event,
                 'returns_goods_services_with_nds',
                 index,
               )
+            "
+            @blur="
+              handleNumberBlurRefunds('returns_goods_services_with_nds', index)
             "
             @focus="
               handleNumberFocus(
@@ -297,30 +331,36 @@
             "
           />
         </div>
-        <div>
+        <div :class="$style.inputWrapper">
           <input
             type="text"
-            :value="row.returns_goods_services_nds"
+            :value="
+              displayValues[index]?.returns_goods_services_nds ||
+              row.returns_goods_services_nds
+            "
             placeholder="0,00"
             :class="[
               $style.inputField,
               {
-                [$style.errorInput]: shouldShowError(
-                  index,
-                  'returns_goods_services_nds',
-                ),
+                [$style.errorInput]:
+                  shouldShowError(index, 'returns_goods_services_nds') ||
+                  dependentErrors[index]?.returnGoods,
               },
             ]"
             @input="
               handleNumberInput($event, 'returns_goods_services_nds', index)
             "
-            @blur="
-              handleNumberBlurWithDefault('returns_goods_services_nds', index)
-            "
+            @blur="handleNumberBlurRefunds('returns_goods_services_nds', index)"
             @focus="
               handleNumberFocus($event, 'returns_goods_services_nds', index)
             "
           />
+          <div
+            v-if="dependentErrors[index]?.returnGoods"
+            :class="$style.errorMessage"
+          >
+            {{ dependentErrors[index].returnGoods }}
+          </div>
         </div>
       </div>
 
@@ -328,7 +368,10 @@
         <div>
           <input
             type="text"
-            :value="row.gift_certificates_sold_with_nds"
+            :value="
+              displayValues[index]?.gift_certificates_sold_with_nds ||
+              row.gift_certificates_sold_with_nds
+            "
             placeholder="0,00"
             :class="[
               $style.inputField,
@@ -347,10 +390,7 @@
               )
             "
             @blur="
-              handleNumberBlurWithDefault(
-                'gift_certificates_sold_with_nds',
-                index,
-              )
+              handleNumberBlurRefunds('gift_certificates_sold_with_nds', index)
             "
             @focus="
               handleNumberFocus(
@@ -361,30 +401,33 @@
             "
           />
         </div>
-        <div>
+        <div :class="$style.inputWrapper">
           <input
             type="text"
-            :value="row.gift_certificates_sold_nds"
+            :value="
+              displayValues[index]?.gift_certificates_sold_nds ||
+              row.gift_certificates_sold_nds
+            "
             placeholder="0,00"
             :class="[
               $style.inputField,
               {
-                [$style.errorInput]: shouldShowError(
-                  index,
-                  'gift_certificates_sold_nds',
-                ),
+                [$style.errorInput]:
+                  shouldShowError(index, 'gift_certificates_sold_nds') ||
+                  dependentErrors[index]?.gift,
               },
             ]"
             @input="
               handleNumberInput($event, 'gift_certificates_sold_nds', index)
             "
-            @blur="
-              handleNumberBlurWithDefault('gift_certificates_sold_nds', index)
-            "
+            @blur="handleNumberBlurRefunds('gift_certificates_sold_nds', index)"
             @focus="
               handleNumberFocus($event, 'gift_certificates_sold_nds', index)
             "
           />
+          <div v-if="dependentErrors[index]?.gift" :class="$style.errorMessage">
+            {{ dependentErrors[index].gift }}
+          </div>
         </div>
       </div>
 
@@ -458,12 +501,50 @@
   }
 
   .errorInput {
-    border-color: var(--a-borderError);
+    border: 1px solid var(--a-borderError) !important;
+    border-radius: 0.25rem !important;
+    animation: pulse 1.5s infinite;
+    box-shadow: 0 0 4px 0 var(--a-borderError);
+  }
+
+  .inputWrapper {
+    position: relative;
+    display: inline-block;
   }
 
   .errorMessage {
-    color: var(--a-errorText);
+    position: absolute;
+    bottom: 100%;
+    left: 0;
+    background-color: var(--a-errorText);
+    color: var(--a-white);
     font-size: rem(10);
-    margin-top: rem(4);
+    padding: rem(2) rem(6);
+    border-radius: rem(4);
+    white-space: nowrap;
+    transform: translateY(-10px);
+    z-index: 10;
+
+    &::after {
+      content: "";
+      position: absolute;
+      top: 100%;
+      left: 10px;
+      border-width: 5px;
+      border-style: solid;
+      border-color: var(--a-errorText) transparent transparent transparent;
+    }
+  }
+
+  @keyframes pulse {
+    0% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.7;
+    }
+    100% {
+      opacity: 1;
+    }
   }
 </style>

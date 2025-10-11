@@ -3,7 +3,11 @@ type NumberField =
   | "end_meter_reading"
   | "amount_without_advance_nds"
   | "advance_without_certificates_with_nds"
-  | "advance_without_certificates_nds";
+  | "advance_without_certificates_nds"
+  | "returns_goods_services_with_nds"
+  | "returns_goods_services_nds"
+  | "gift_certificates_sold_with_nds"
+  | "gift_certificates_sold_nds";
 
 type ValidationRules = {
   min?: number;
@@ -13,20 +17,41 @@ type ValidationRules = {
   customValidator?: (value: string) => string | null;
 };
 
+type NumberRow = Record<NumberField, string>;
+
 export const useNumberFields = (
-  editableRows: Ref<unknown[]>,
+  editableRows: Ref<NumberRow[]>,
   numberErrors: Ref<Record<number, string>>,
   fieldValidations: Partial<Record<NumberField, ValidationRules>> = {},
 ) => {
-  const formatNumberInput = (value: string): string => {
-    let cleaned = value.replace(/[^\d,-]/g, "");
+  const displayValues = ref<
+    Record<number, Partial<Record<NumberField, string>>>
+  >({});
 
-    const minusIndex = cleaned.indexOf("-");
-    if (minusIndex > 0) {
-      cleaned = cleaned.replace(/-/g, "");
-      cleaned = "-" + cleaned;
-    } else if (minusIndex === 0) {
-      cleaned = "-" + cleaned.replace(/-/g, "");
+  const formatNumberDisplay = (value: string): string => {
+    if (!value) return "";
+
+    // Если пользователь только начал вводить запятую, не теряем её
+    if (value.endsWith(",")) {
+      const integerPart = value
+        .slice(0, -1)
+        .replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+      return `${integerPart},`;
+    }
+
+    const [integerPart, decimalPart] = value.split(",");
+    const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+
+    return decimalPart !== undefined
+      ? `${formattedInteger},${decimalPart}`
+      : formattedInteger;
+  };
+
+  const formatNumberInput = (value: string): string => {
+    let cleaned = value.replace(/[^\d,]/g, "");
+
+    if (cleaned.startsWith(",")) {
+      cleaned = cleaned.replace(/^,/, "");
     }
 
     const commaIndex = cleaned.indexOf(",");
@@ -64,14 +89,66 @@ export const useNumberFields = (
     index: number,
   ): void => {
     const target = event.target as HTMLInputElement;
-    let value = target.value;
+    const rawValue = target.value;
+    const cursorPos = target.selectionStart || 0;
 
-    value = formatNumberInput(value);
+    // чистим значение
+    let cleanedValue = formatNumberInput(rawValue);
+    if (cleanedValue.startsWith(",")) cleanedValue = cleanedValue.slice(1);
 
-    editableRows.value[index][field] = value;
-    target.value = value;
+    // ограничиваем 2 знака после запятой
+    const commaIndex = cleanedValue.indexOf(",");
+    if (commaIndex !== -1) {
+      const integerPart = cleanedValue.slice(0, commaIndex);
+      let decimalPart = cleanedValue.slice(commaIndex + 1).replace(/,/g, "");
+      if (decimalPart.length > 2) decimalPart = decimalPart.slice(0, 2);
+      cleanedValue = integerPart + "," + decimalPart;
+    }
 
-    clearFieldError(index);
+    editableRows.value[index][field] = cleanedValue;
+
+    const display = formatNumberDisplay(cleanedValue);
+    if (!displayValues.value[index]) displayValues.value[index] = {};
+    displayValues.value[index][field] = display;
+
+    if (field === "returns_goods_services_with_nds") {
+      const ndsValue = editableRows.value[index]?.returns_goods_services_nds;
+      if (ndsValue === "0,00") {
+        editableRows.value[index].returns_goods_services_nds = "";
+        if (!displayValues.value[index]) displayValues.value[index] = {};
+        displayValues.value[index].returns_goods_services_nds = "";
+      }
+    } else if (field === "gift_certificates_sold_with_nds") {
+      const ndsValue = editableRows.value[index]?.gift_certificates_sold_nds;
+      if (ndsValue === "0,00") {
+        editableRows.value[index].gift_certificates_sold_nds = "";
+        if (!displayValues.value[index]) displayValues.value[index] = {};
+        displayValues.value[index].gift_certificates_sold_nds = "";
+      }
+    }
+
+    // пересчитываем курсор
+    let digitsBeforeCursor = 0;
+    for (let i = 0; i < cursorPos; i++) {
+      if (/[0-9]/.test(rawValue[i])) digitsBeforeCursor++;
+      // если пользователь ввел запятую в конце, считаем её как позицию
+      if (rawValue[i] === "," && i === cursorPos - 1) digitsBeforeCursor++;
+    }
+
+    let newCursorPos = 0;
+    let digitCount = 0;
+    while (digitCount < digitsBeforeCursor && newCursorPos < display.length) {
+      if (/[0-9]/.test(display[newCursorPos])) digitCount++;
+      newCursorPos++;
+    }
+
+    // если пользователь только что ввел запятую, ставим курсор после неё
+    if (rawValue[cursorPos - 1] === ",") newCursorPos++;
+
+    target.value = display;
+    target.setSelectionRange(newCursorPos, newCursorPos);
+
+    clearFieldError(index, field);
   };
 
   /**
@@ -84,11 +161,29 @@ export const useNumberFields = (
     value = formatNumberBlur(value);
     editableRows.value[index][field] = value;
 
+    if (!displayValues.value[index]) displayValues.value[index] = {};
+    displayValues.value[index][field] = formatNumberDisplay(value);
+
     validateField(field, index);
 
     if (field === "start_meter_reading" || field === "end_meter_reading") {
       validateMeterReadings(index);
     }
+  };
+
+  const handleNumberBlurRefunds = (field: NumberField, index: number): void => {
+    let value = editableRows.value[index][field];
+
+    // Форматируем значение при потере фокуса
+
+    if (!value || value === ",") value = "0,00";
+    value = formatNumberBlur(value);
+    editableRows.value[index][field] = value;
+
+    if (!displayValues.value[index]) displayValues.value[index] = {};
+    displayValues.value[index][field] = formatNumberDisplay(value);
+
+    validateField(field, index);
   };
 
   const validateField = (field: NumberField, index: number): boolean => {
@@ -119,7 +214,7 @@ export const useNumberFields = (
       return false;
     }
 
-    clearFieldError(index);
+    clearFieldError(index, field);
     return true;
   };
 
@@ -144,13 +239,25 @@ export const useNumberFields = (
           numberErrors.value[index] ===
           "Начальное значение не может быть больше конечного"
         ) {
-          clearFieldError(index);
+          clearFieldError(index, "start_meter_reading");
         }
       }
     }
   };
 
-  const clearFieldError = (index: number): void => {
+  const clearFieldError = (index: number, field?: NumberField): void => {
+    if (!field) return; // очищаем только конкретное поле
+    const currentError = numberErrors.value[index];
+
+    // Если ошибка про показания счётчиков — не сбрасываем при вводе в другом поле
+    if (
+      field !== "start_meter_reading" &&
+      field !== "end_meter_reading" &&
+      currentError === "Начальное значение не может быть больше конечного"
+    ) {
+      return;
+    }
+
     numberErrors.value[index] = undefined;
   };
 
@@ -171,5 +278,8 @@ export const useNumberFields = (
     handleNumberBlur,
     shouldShowError,
     validateField,
+    displayValues,
+    formatNumberDisplay,
+    handleNumberBlurRefunds,
   };
 };

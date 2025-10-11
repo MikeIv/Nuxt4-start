@@ -57,7 +57,9 @@
 
   .main {
     grid-area: content;
-    background-color: var(--a-white);
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
     padding: rem(18) rem(34);
     overflow: hidden;
   }
@@ -67,6 +69,7 @@
     flex-direction: column;
     width: 100%;
     height: 100%;
+    overflow: auto;
 
     &::-webkit-scrollbar {
       width: rem(6);
