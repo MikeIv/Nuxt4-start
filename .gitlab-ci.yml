@@ -5,8 +5,6 @@ stages:
 build frontend:
   stage: build
   image: node:20.19-alpine
-  variables:
-    BASE_API_URL: https://lk-schelkovsky-api.dev.nuu.ru
   script:
     - npm install
     - npm run build
@@ -25,9 +23,9 @@ deploy develop:
     name: dev
     url: https://lk-schelkovsky.grandfs-develop.ru/
   script:
-    - rm -rf /var/www/shelkovskiy/lk-schelkovsky-n4/${CI_COMMIT_BRANCH}/.output
-    - cp -rf .output /var/www/shelkovskiy/lk-schelkovsky-n4/${CI_COMMIT_BRANCH}
-    - cd /var/www/shelkovskiy/lk-schelkovsky-n4/${CI_COMMIT_BRANCH}
+    - rm -rf /var/www/shelkovskiy/${CI_PROJECT_NAME}/${CI_COMMIT_BRANCH}/.output
+    - cp -rf .output /var/www/shelkovskiy/${CI_PROJECT_NAME}/${CI_COMMIT_BRANCH}
+    - cd /var/www/shelkovskiy/${CI_PROJECT_NAME}/${CI_COMMIT_BRANCH}
     - git pull ${CI_REPOSITORY_URL} ${CI_COMMIT_BRANCH}
     - |
       # Telegram notification publish
@@ -41,3 +39,26 @@ deploy develop:
   tags:
     - shell
     - grand208
+
+deploy production:
+  stage: deploy
+  environment:
+    name: prod
+    url: https://schelkovsky.com/
+  script:
+    - rm -rf /var/www/shelkovskiy/${CI_PROJECT_NAME}/${CI_COMMIT_BRANCH}/.output
+    - cp -rf .output /var/www/shelkovskiy/${CI_PROJECT_NAME}/${CI_COMMIT_BRANCH}
+    - cd /var/www/shelkovskiy/${CI_PROJECT_NAME}/${CI_COMMIT_BRANCH}
+    - git pull ${CI_REPOSITORY_URL} ${CI_COMMIT_BRANCH}
+    - |
+      # Telegram notification publish
+      CI_ESCAPED_AUTHOR=`echo $CI_COMMIT_AUTHOR | sed -e "s/</\&lt;/" -e "s/>/\&gt;/"`
+      curl -s -X POST -H "Content-Type: application/json" \
+        -d "{\"chat_id\":${TELEGRAM_GROUP},\"parse_mode\":\"HTML\",\"disable_web_page_preview\":true,\"text\":\"Загружено <a href='${CI_ENVIRONMENT_URL}'><b>${CI_PROJECT_NAME} / ${CI_ENVIRONMENT_NAME}</b></a>\nВетка: ${CI_COMMIT_BRANCH}\nАвтор: ${CI_ESCAPED_AUTHOR}\nTitle: ${CI_COMMIT_TITLE}\"}" \
+        https://api.telegram.org/bot${TELEGRAM_BOT}/sendMessage > /dev/null
+  only:
+    refs:
+      - main
+  tags:
+    - shell
+    - grand232
